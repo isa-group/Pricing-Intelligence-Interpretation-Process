@@ -1,0 +1,33 @@
+saasName: To purchase addOn A you have to purchase two plans
+version: '2.0'
+createdAt: 2024-11-19
+currency: EUR
+hasAnnualPayment: false
+features:
+  feature1:
+    description: ''
+    valueType: BOOLEAN
+    defaultValue: false
+    type: DOMAIN
+  feature2:
+    description: ''
+    valueType: BOOLEAN
+    defaultValue: false
+    type: DOMAIN
+addOns:
+  addOn1:
+    price: 30
+    unit: ''
+    availableFor: []
+    features:
+      feature1:
+        value: true
+  addOn2:
+    price: 10
+    unit: ''
+    availableFor: []
+    features:
+      feature1:
+        value: true
+      feature2:
+        value: true

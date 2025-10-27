@@ -1,0 +1,755 @@
+openapi: 3.0.0
+info:
+  title: Pricing Analysis API
+  version: v2.0.0 
+  description: |-
+    API for performing various pricing analysis operations.
+    - **Health Check**: Health status endpoint at `/health`.
+    - **Documentation**: Interactive API documentation at `/docs`.
+    - **Synchronous Operations**: For direct, immediate feedback on pricing configurations, such as getting a summary of metrics via `/pricing/summary`.
+    - **Asynchronous Operations**: For analysis and optimization tasks that might be long-running, launched as background jobs via `/pricing/analysis`. Pricing configurations are uploaded as YAML files with each request.
+servers:
+  - description: Local development server
+    url: http://localhost:3000/
+  - description: Local Docker server
+    url: http://localhost:8002/
+
+components:
+  schemas:
+    # Health Check Response
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: "UP"
+      required:
+        - status
+
+    # Schemas for Pricing Configuration (Content of the YAML to be provided in requests)
+    Plan:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Name of the plan.
+          example: "BASIC"
+        price:
+          type: number
+          format: float
+          description: Price of the plan.
+          example: 0
+        features:
+          type: array
+          items:
+            type: string
+          description: List of features included in the plan.
+          example: ["f1", "f2"]
+      required:
+        - name
+        - price
+        - features
+    AddOn:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Name of the add-on.
+          example: "XTRA"
+        price:
+          type: number
+          format: float
+          description: Price of the add-on.
+          example: 10
+        availableFor:
+          type: array
+          items:
+            type: string
+          description: List of plan names this add-on is available for.
+          example: ["BASIC"]
+      required:
+        - name
+        - price
+        - availableFor
+    PricingInputYaml: # Describes the structure of the YAML content
+      type: object
+      description: Structure for defining pricing plans and add-ons, expected as YAML content.
+      properties:
+        plans:
+          type: array
+          items:
+            $ref: '#/components/schemas/Plan'
+          description: List of pricing plans.
+        addOns:
+          type: array
+          items:
+            $ref: '#/components/schemas/AddOn'
+          description: List of add-ons.
+      required:
+        - plans
+        # addOns is optional, there might not be addOns
+        # - addOns # Making it not required for more flexibility
+
+    PricingSummaryRequest:
+      type: object
+      description: Form data for requesting a synchronous pricing summary with file upload.
+      properties:
+        pricingFile:
+          type: string
+          format: binary
+          description: |-
+            The YAML file containing the pricing configuration.
+            Must conform to the PricingInputYaml schema structure.
+      required:
+        - pricingFile
+
+    PricingSummaryResponse:
+      type: object
+      description: Provides a comprehensive summary of metrics from a given pricing configuration.
+      properties:
+        numberOfFeatures:
+          type: integer
+          description: Total number of unique features
+          example: 4
+        numberOfInformationFeatures:
+          type: integer
+          description: Number of information-type features
+          example: 2
+        numberOfIntegrationFeatures:
+          type: integer
+          description: Number of integration-type features
+          example: 1
+        numberOfIntegrationApiFeatures:
+          type: integer
+          description: Number of API integration features
+          example: 1
+        numberOfIntegrationExtensionFeatures:
+          type: integer
+          description: Number of extension integration features
+          example: 0
+        numberOfIntegrationIdentityProviderFeatures:
+          type: integer
+          description: Number of identity provider integration features
+          example: 0
+        numberOfIntegrationWebSaaSFeatures:
+          type: integer
+          description: Number of web SaaS integration features
+          example: 0
+        numberOfIntegrationMarketplaceFeatures:
+          type: integer
+          description: Number of marketplace integration features
+          example: 0
+        numberOfIntegrationExternalDeviceFeatures:
+          type: integer
+          description: Number of external device integration features
+          example: 0
+        numberOfDomainFeatures:
+          type: integer
+          description: Number of domain-type features
+          example: 0
+        numberOfAutomationFeatures:
+          type: integer
+          description: Number of automation-type features
+          example: 1
+        numberOfBotAutomationFeatures:
+          type: integer
+          description: Number of bot automation features
+          example: 0
+        numberOfFilteringAutomationFeatures:
+          type: integer
+          description: Number of filtering automation features
+          example: 1
+        numberOfTrackingAutomationFeatures:
+          type: integer
+          description: Number of tracking automation features
+          example: 0
+        numberOfTaskAutomationFeatures:
+          type: integer
+          description: Number of task automation features
+          example: 0
+        numberOfManagementFeatures:
+          type: integer
+          description: Number of management-type features
+          example: 0
+        numberOfGuaranteeFeatures:
+          type: integer
+          description: Number of guarantee-type features
+          example: 0
+        numberOfSupportFeatures:
+          type: integer
+          description: Number of support-type features
+          example: 0
+        numberOfPaymentFeatures:
+          type: integer
+          description: Number of payment-type features
+          example: 0
+        numberOfUsageLimits:
+          type: integer
+          description: Total number of usage limits
+          example: 2
+        numberOfRenewableUsageLimits:
+          type: integer
+          description: Number of renewable usage limits
+          example: 1
+        numberOfNonRenewableUsageLimits:
+          type: integer
+          description: Number of non-renewable usage limits
+          example: 1
+        numberOfPlans:
+          type: integer
+          description: Total number of pricing plans
+          example: 2
+        numberOfFreePlans:
+          type: integer
+          description: Number of plans with price 0
+          example: 1
+        numberOfPaidPlans:
+          type: integer
+          description: Number of plans with price > 0
+          example: 1
+        numberOfAddOns:
+          type: integer
+          description: Total number of add-ons
+          example: 1
+        numberOfReplacementAddons:
+          type: integer
+          description: Number of replacement add-ons
+          example: 0
+        numberOfExtensionAddons:
+          type: integer
+          description: Number of extension add-ons
+          example: 1
+        minSubscriptionPrice:
+          type: number
+          format: float
+          description: Minimum subscription price across all plans
+          example: 0.0
+        maxSubscriptionPrice:
+          type: number
+          format: float
+          description: Maximum subscription price across all plans
+          example: 50.0
+      required:
+        - numberOfFeatures
+        - numberOfInformationFeatures
+        - numberOfIntegrationFeatures
+        - numberOfIntegrationApiFeatures
+        - numberOfIntegrationExtensionFeatures
+        - numberOfIntegrationIdentityProviderFeatures
+        - numberOfIntegrationWebSaaSFeatures
+        - numberOfIntegrationMarketplaceFeatures
+        - numberOfIntegrationExternalDeviceFeatures
+        - numberOfDomainFeatures
+        - numberOfAutomationFeatures
+        - numberOfBotAutomationFeatures
+        - numberOfFilteringAutomationFeatures
+        - numberOfTrackingAutomationFeatures
+        - numberOfTaskAutomationFeatures
+        - numberOfManagementFeatures
+        - numberOfGuaranteeFeatures
+        - numberOfSupportFeatures
+        - numberOfPaymentFeatures
+        - numberOfUsageLimits
+        - numberOfRenewableUsageLimits
+        - numberOfNonRenewableUsageLimits
+        - numberOfPlans
+        - numberOfFreePlans
+        - numberOfPaidPlans
+        - numberOfAddOns
+        - numberOfReplacementAddons
+        - numberOfExtensionAddons
+        - minSubscriptionPrice
+        - maxSubscriptionPrice
+
+    # Schemas for Asynchronous Jobs (unchanged, just omitted for brevity)
+    JobOperationType:
+      type: string
+      enum: [validate, optimal, subscriptions, filter]
+      description: The type of operation to be performed by the job.
+      example: "validate"
+
+    JobSolverType:
+      type: string
+      description: Identifier of the solver to be used for the job.
+      example: "minizinc" # Other examples: "chuffed", "ortools", "gecode"
+
+    JobSpecificPayload: # Renamed from JobCreationPayload for clarity in new context
+      type: object
+      description: |-
+        Payload specific to the 'operation' type.
+        For example, for 'validate-subscription', it would include 'plan' and 'addOns'.
+        For operations not requiring a specific payload, this can be an empty object or omitted.
+      properties: {} # No fixed properties, structure varies.
+      example:
+        plan: "PRO"
+        addOns: ["XTRA", "YET"]
+
+    AnalysisJobRequest: # New schema for the analysis job request body
+      type: object
+      description: Form data for creating a new analysis job with file upload.
+      properties:
+        pricingFile:
+          type: string
+          format: binary
+          description: |-
+            The YAML file containing the pricing configuration.
+            Must conform to the PricingInputYaml schema structure.
+        operation:
+          $ref: '#/components/schemas/JobOperationType'
+        solver:
+          $ref: '#/components/schemas/JobSolverType'
+        filters:
+          type: string
+          description: |-
+            JSON string representing filter criteria for operations that require it.
+            Will be parsed as FilterCriteria object.
+          example: '{"minPrice": 0, "maxPrice": 100}'
+        objective:
+          type: string
+          enum: ["minimize", "maximize"]
+          description: Objective for optimization operations.
+          example: "minimize"
+      required:
+        - pricingFile
+        - operation
+        - solver
+
+    JobStatusEnum:
+      type: string
+      enum: [PENDING, RUNNING, COMPLETED, FAILED]
+      description: Current status of the job.
+      example: "RUNNING"
+
+    JobCreationResponse:
+      type: object
+      properties:
+        jobId:
+          type: string
+          description: Unique identifier for the created job.
+          example: "job-789"
+        status:
+          type: string
+          enum: [PENDING] # When a job is created, it's PENDING
+          description: Initial status of the job.
+          example: "PENDING"
+        submittedAt:
+          type: string
+          format: date-time
+          description: Timestamp of when the job was submitted.
+          example: "2025-05-29T11:00:00Z"
+      required:
+        - jobId
+        - status
+        - submittedAt
+
+    ResultCardinality:
+      type: object
+      properties:
+        cardinal:
+          type: integer
+          description: The calculated cardinality.
+          example: 162
+      required:
+        - cardinal
+    ResultValidate:
+      type: object
+      properties:
+        valid:
+          type: boolean
+          description: Indicates if the validation was successful.
+          example: true
+      required:
+        - valid
+    ResultOptimumSubscriptionItem:
+      type: object
+      description: Represents a single subscription item in an optimum result.
+      properties:
+        plan:
+          type: string
+          example: "PRO"
+        addOns:
+          type: array
+          items:
+            type: string
+          example: ["XTRA"]
+    ResultOptimum:
+      type: object
+      properties:
+        subscriptions:
+          type: array
+          items:
+            $ref: '#/components/schemas/ResultOptimumSubscriptionItem'
+          description: List of subscriptions forming the optimum solution.
+        cost:
+          type: number
+          format: float
+          description: The total cost of the optimum solution.
+          example: 0
+      required:
+        - subscriptions
+        - cost
+    GenericResult:
+      type: object
+      description: A generic object for results of operations not having a specific schema defined.
+      additionalProperties: true
+
+    JobResultData:
+      oneOf:
+        - $ref: '#/components/schemas/ResultCardinality'
+        - $ref: '#/components/schemas/ResultValidate'
+        - $ref: '#/components/schemas/ResultOptimum'
+        - $ref: '#/components/schemas/GenericResult'
+      description: |-
+        The actual structure of the result depends on the operation performed by the job.
+        Examples:
+        - For 'cardinality': {"cardinal": 162}
+        - For 'validate': {"valid": true}
+        - For 'optimum': { "subscriptions":[...], "cost": 0 }
+
+    JobPendingResponse:
+      type: object
+      description: Response schema for a job in PENDING state.
+      properties:
+        jobId:
+          type: string
+          example: "job-789"
+        status:
+          type: string
+          enum: [PENDING]
+          example: "PENDING"
+        submittedAt:
+          type: string
+          format: date-time
+          example: "2025-05-29T11:00:00Z"
+      required:
+        - jobId
+        - status
+        - submittedAt
+
+    JobRunningResponse:
+      type: object
+      description: Response schema for a job in RUNNING state.
+      properties:
+        jobId:
+          type: string
+          example: "job-789"
+        status:
+          type: string
+          enum: [RUNNING]
+          example: "RUNNING"
+        submittedAt:
+          type: string
+          format: date-time
+          example: "2025-05-29T11:00:00Z"
+        startedAt:
+          type: string
+          format: date-time
+          example: "2025-05-29T11:00:05Z"
+      required:
+        - jobId
+        - status
+        - submittedAt
+        - startedAt
+
+    JobCompletedResponse:
+      type: object
+      description: Response schema for a job in COMPLETED state.
+      properties:
+        jobId:
+          type: string
+          example: "job-789"
+        status:
+          type: string
+          enum: [COMPLETED]
+          example: "COMPLETED"
+        submittedAt:
+          type: string
+          format: date-time
+          example: "2025-05-29T11:00:00Z"
+        startedAt:
+          type: string
+          format: date-time
+          example: "2025-05-29T11:00:05Z"
+        completedAt:
+          type: string
+          format: date-time
+          example: "2025-05-29T11:00:20Z"
+        result:
+          $ref: '#/components/schemas/JobResultData'
+      required:
+        - jobId
+        - status
+        - submittedAt
+        - startedAt
+        - completedAt
+        - result
+
+    JobFailedResponse:
+      type: object
+      description: Response schema for a job in FAILED state.
+      properties:
+        jobId:
+          type: string
+          example: "job-789"
+        status:
+          type: string
+          enum: [FAILED]
+          example: "FAILED"
+        submittedAt:
+          type: string
+          format: date-time
+          example: "2025-05-29T11:00:00Z"
+        startedAt:
+          type: string
+          format: date-time
+          nullable: true # A job might fail before it even starts
+          example: "2025-05-29T11:00:05Z"
+        failedAt: # Added for consistency
+          type: string
+          format: date-time
+          example: "2025-05-29T11:00:10Z"
+        error: # Added to provide failure reason
+          type: object
+          properties:
+            message:
+              type: string
+              example: "Solver timeout after 30s"
+            details:
+              type: string
+              nullable: true
+              example: "Extended error information or stack trace."
+          required:
+            - message
+      required:
+        - jobId
+        - status
+        - submittedAt
+        - failedAt
+        - error
+
+
+    GetJobDetailsResponse:
+      oneOf:
+        - $ref: '#/components/schemas/JobPendingResponse'
+        - $ref: '#/components/schemas/JobRunningResponse'
+        - $ref: '#/components/schemas/JobCompletedResponse'
+        - $ref: '#/components/schemas/JobFailedResponse'
+      discriminator:
+        propertyName: status
+        mapping:
+          PENDING: '#/components/schemas/JobPendingResponse'
+          RUNNING: '#/components/schemas/JobRunningResponse'
+          COMPLETED: '#/components/schemas/JobCompletedResponse'
+          FAILED: '#/components/schemas/JobFailedResponse'
+
+  parameters:
+    JobIdPathParameter:
+      name: jobId
+      in: path
+      required: true
+      description: Identifier of the job.
+      schema:
+        type: string
+        example: "job-789"
+
+paths:
+  /health:
+    get:
+      summary: Health check endpoint
+      description: Returns the health status of the API
+      operationId: healthCheck
+      tags:
+        - Health
+      responses:
+        '200':
+          description: API is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /api/v1/health:
+    get:
+      summary: Health check endpoint
+      description: Returns the health status of the API
+      operationId: healthCheck
+      tags:
+        - Health
+      responses:
+        '200':
+          description: API is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  # --- NEW ENDPOINT ---
+  /api/v1/pricing/summary:
+    post:
+      summary: Get a summary of key pricing metrics
+      description: |-
+        Processes an uploaded pricing YAML file and returns a summary of basic metrics.
+        This is a synchronous operation.
+      operationId: getPricingSummary
+      tags:
+        - Synchronous Pricing Operations # New tag to differentiate
+      requestBody:
+        description: Pricing configuration YAML file for which to generate the summary.
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PricingSummaryRequest'
+            examples:
+              file_upload_example:
+                summary: "Example YAML file upload"
+                value:
+                  pricingFile: "binary file content"
+      responses:
+        '200':
+          description: Successfully retrieved the pricing summary.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PricingSummaryResponse'
+              examples:
+                success_example:
+                  summary: "Example pricing summary"
+                  value:
+                    numberOfUniqueFeatures: 4
+                    numberOfPlans: 2
+                    numberOfAddOns: 1
+                    minPlanPrice: 0
+                    maxPlanPrice: 50
+        '400':
+          description: |-
+            Bad Request. The request is malformed, no file was uploaded, or the uploaded YAML file is syntactically invalid.
+            (Consider adding a more specific error schema, e.g., ErrorResponse)
+        '422':
+          description: |-
+            Unprocessable Entity. The uploaded YAML file is valid YAML but does not conform to the
+            PricingInputYaml schema (e.g., missing required fields like 'plans', or incorrect data types).
+            (Consider adding a more specific error schema)
+        '500':
+          description: Internal server error during summary generation.
+  # --- END OF NEW ENDPOINT ---
+
+  /api/v1/pricing/analysis:
+    post:
+      summary: Create a new pricing analysis job
+      description: |-
+        Creates and launches a new asynchronous job for a given pricing configuration (provided as an uploaded YAML file).
+        Additional parameters like filters and objective can be provided as form data.
+      operationId: createPricingAnalysisJob # Updated operationId
+      tags:
+        - Pricing Analysis Operations # Updated tag for clarity
+      requestBody:
+        description: |-
+          Analysis job details, including uploaded pricing YAML file, operation type, solver, and optional parameters.
+          The structure of the pricing YAML file should follow the `PricingInputYaml` schema.
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AnalysisJobRequest'
+            examples:
+              validate_example:
+                summary: "Validate pricing model"
+                value:
+                  pricingFile: "binary file content"
+                  operation: "validate"
+                  solver: "minizinc"
+              validate_subscription_example:
+                summary: "Validate a specific subscription with filters"
+                value:
+                  pricingFile: "binary file content"
+                  operation: "optimal"
+                  solver: "minizinc"
+                  filters: '{"minPrice": 0, "maxPrice": 100}'
+                  objective: "minimize"
+      responses:
+        '202':
+          description: Job accepted and is pending execution.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobCreationResponse'
+        '400':
+          description: Invalid parameters, no file uploaded, or invalid YAML file content for the specified operation.
+          # You might want to add a specific error schema here later
+        '500':
+          description: Internal server error during job submission.
+
+  /api/v1/pricing/analysis/{jobId}:
+    get:
+      summary: Get pricing analysis job status or result
+      description: |-
+        Retrieves the current status of a pricing analysis job.
+        If the job status is "COMPLETED", the response also includes the 'result' field.
+        If the job status is "FAILED", the response includes error details.
+      operationId: getPricingAnalysisJobStatusOrResult # Updated operationId
+      tags:
+        - Pricing Analysis Operations # Updated tag for clarity
+      parameters:
+        - $ref: '#/components/parameters/JobIdPathParameter'
+      responses:
+        '200':
+          description: Successfully retrieved job status or result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetJobDetailsResponse'
+              examples:
+                pending:
+                  summary: Job Pending Example
+                  value:
+                    jobId: "job-789"
+                    status: "PENDING"
+                    submittedAt: "2025-05-29T11:00:00Z"
+                running:
+                  summary: Job Running Example
+                  value:
+                    jobId: "job-789"
+                    status: "RUNNING"
+                    submittedAt: "2025-05-29T11:00:00Z"
+                    startedAt: "2025-05-29T11:00:05Z"
+                completed_validate:
+                  summary: Job Completed Example (Validate)
+                  value:
+                    jobId: "job-789"
+                    status: "COMPLETED"
+                    submittedAt: "2025-05-29T11:00:00Z"
+                    startedAt: "2025-05-29T11:00:05Z"
+                    completedAt: "2025-05-29T11:00:20Z"
+                    result:
+                      valid: true
+                completed_cardinality:
+                  summary: Job Completed Example (Cardinality)
+                  value:
+                    jobId: "job-123"
+                    status: "COMPLETED"
+                    submittedAt: "2025-05-29T10:00:00Z"
+                    startedAt: "2025-05-29T10:00:05Z"
+                    completedAt: "2025-05-29T10:00:15Z"
+                    result:
+                      cardinal: 162
+                failed:
+                  summary: Job Failed Example
+                  value:
+                    jobId: "job-xyz"
+                    status: "FAILED"
+                    submittedAt: "2025-05-29T12:00:00Z"
+                    startedAt: "2025-05-29T12:00:05Z" # Could be null if failed before start
+                    failedAt: "2025-05-29T12:00:06Z"
+                    error:
+                      message: "Invalid plan specified in jobPayload for validate-subscription."
+        '404':
+          description: Job not found.
+
+tags:
+  - name: Health
+    description: Health check operations
+  - name: Pricing Analysis Operations # Consolidated tag for analysis
+    description: Operations performed as background jobs (e.g., analysis, validation) using YAML files uploaded with each request.
+  - name: Synchronous Pricing Operations
+    description: Operations that provide immediate, synchronous feedback on uploaded pricing files.

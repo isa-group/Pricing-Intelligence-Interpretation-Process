@@ -1,0 +1,1 @@
+In this case, the `BASIC` plan offers fewer features and is more expensive compared to the `PRO` plan, which provides all features at a lower price.

@@ -1,0 +1,67 @@
+name: A-MINT_API
+services:
+  choco-api:
+    build:
+      context: .
+      dockerfile: csp/Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - PORT=8000
+      - LOG_LEVEL=INFO
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  analysis-api:
+    build:
+      context: ./analysis_api
+      dockerfile: Dockerfile
+    ports:
+      - "8002:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - CHOCO_API=http://choco-api:8000
+      - LOG_LEVEL=INFO
+    volumes:
+      - ./analysis_api/src:/app/src
+      - ./analysis_api/logs:/app/logs
+      - ./analysis_api/output:/app/output
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    depends_on:
+      - choco-api
+    restart: unless-stopped
+
+  a-mint-api:
+    build:
+      context: .
+      dockerfile: src/Dockerfile
+    ports:
+      - "8001:8000"
+    environment:
+      - PYTHONPATH=/app
+      - PORT=8000
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI_API_KEYS=${OPENAI_API_KEYS}
+      - ANALYSIS_API=http://analysis-api:3000/api/v1
+      - LOG_LEVEL=INFO
+    volumes:
+      - ./src:/app/src
+      - ./logs:/app/logs
+      - ./output:/app/output
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+    depends_on:
+      - analysis-api

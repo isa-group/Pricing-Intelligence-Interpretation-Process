@@ -1,0 +1,44 @@
+saasName: addon1 not available for any plan
+version: "2.0"
+createdAt: 2024-11-19
+currency: EUR
+hasAnnualPayment: false
+features:
+  feature1:
+    description: ''
+    valueType: BOOLEAN
+    defaultValue: true
+    type: DOMAIN
+  feature2:
+    description: ''
+    valueType: BOOLEAN
+    defaultValue: false
+    type: INFORMATION
+usageLimits:
+  usageLimit1:
+    unit: ''
+    valueType: NUMERIC
+    defaultValue: 10
+    type: NON_RENEWABLE
+    linkedFeatures:
+      - feature1
+plans:
+  plan1:
+    price: 10.00
+    features: null
+    usageLimits: null
+  plan2:
+    price: 39.99
+    features: null
+    usageLimits:
+      usageLimit1:
+        value: 100
+addOns:
+  addOn1:
+    price: 24.99
+    unit: ""
+    availableFor: 
+      - plan3
+    features:
+      feature2:
+        value: true

@@ -1,0 +1,1 @@
+In this case there are three addons: `addon1`, `addon2` and `addon3`. `addon1` depends on `addon2`, `addon2` depends on `addon3` but `addon3` excludes on `addon1`. This is a circular dependency that results in a pricing where only `addon3` can be contracted.

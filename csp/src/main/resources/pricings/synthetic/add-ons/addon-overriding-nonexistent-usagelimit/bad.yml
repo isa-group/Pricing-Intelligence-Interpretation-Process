@@ -1,0 +1,25 @@
+saasName: addon foo overriding nonexistent usage limit
+version: "2.0"
+createdAt: 2024-11-19
+currency: EUR
+hasAnnualPayment: false
+features:
+  feature1:
+    description: ''
+    valueType: BOOLEAN
+    defaultValue: true
+    type: DOMAIN
+usageLimits:
+  usageLimit1:
+    valueType: NUMERIC
+    defaultValue: 10
+    type: NON_RENEWABLE
+    linkedFeatures:
+      - feature1
+addOns:
+  foo:
+    price: 10
+    unit: ""
+    usageLimits:
+      usageLimit2:
+        value: 100

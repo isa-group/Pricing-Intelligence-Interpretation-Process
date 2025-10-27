@@ -1,0 +1,41 @@
+saasName: two addons offer same extensions
+version: '2.0'
+createdAt: 2024-11-19
+currency: EUR
+hasAnnualPayment: false
+features:
+  feature1:
+    description: ''
+    valueType: BOOLEAN
+    defaultValue: true
+    type: DOMAIN
+usageLimits:
+  usageLimit1:
+    unit: ''
+    valueType: NUMERIC
+    defaultValue: 10
+    type: NON_RENEWABLE
+    linkedFeatures:
+      - feature1
+plans:
+  plan1:
+    price: 10.00
+    features: null
+    usageLimits: null
+addOns:
+  addOn1:
+    price: 24.99
+    unit: ''
+    availableFor:
+      - plan1
+    usageLimits:
+      usageLimit1:
+        value: 20
+  addOn2:
+    price: 24.99
+    unit: ''
+    availableFor:
+      - plan1
+    usageLimits:
+      usageLimit1:
+        value: 20

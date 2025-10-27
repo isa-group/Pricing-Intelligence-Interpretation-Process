@@ -1,0 +1,45 @@
+saasName: addon foo depends on nonexistent addon bar
+syntaxVersion: '2.1'
+version: '2024-11-19'
+createdAt: '2024-11-19'
+currency: EUR
+variables: {}
+features:
+  feature1:
+    description: ''
+    valueType: BOOLEAN
+    defaultValue: false
+    type: DOMAIN
+  feature2:
+    description: ''
+    valueType: BOOLEAN
+    defaultValue: false
+    type: DOMAIN
+  feature3:
+    description: ''
+    valueType: BOOLEAN
+    defaultValue: false
+    type: DOMAIN
+plans:
+  BASIC:
+    price: 10
+    features:
+      feature3:
+        value: true
+addOns:
+  addOn1:
+    price: 10
+    unit: ''
+    features:
+      feature1:
+        value: true
+    dependsOn:
+      - addOn2
+  addOn2:
+    price: 10
+    unit: ''
+    features:
+      feature2:
+        value: true
+    excludes:
+      - addOn1

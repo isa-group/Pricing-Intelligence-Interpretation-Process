@@ -1,0 +1,19 @@
+saasName: plan foo overriding nonexistent feature
+syntaxVersion: '2.1'
+version: '2024-11-19'
+createdAt: '2024-11-19'
+currency: EUR
+variables: {}
+features:
+  feature1:
+    description: ''
+    valueType: BOOLEAN
+    defaultValue: true
+    type: DOMAIN
+plans:
+  foo:
+    price: 10
+    unit: ''
+    features:
+      feature2:
+        value: true

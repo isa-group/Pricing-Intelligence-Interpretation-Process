@@ -1,0 +1,1 @@
+In this case, `addon1` depends on `addon2` to be added to the subscription. However, `addon2` cannot be in subscriptions that contain `addon1`, making it imposible to contract `addon1` and thus `feature1`.

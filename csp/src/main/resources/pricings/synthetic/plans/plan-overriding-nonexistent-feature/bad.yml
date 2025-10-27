@@ -1,0 +1,18 @@
+saasName: plan foo overriding nonexistent feature
+version: "2.0"
+createdAt: 2024-11-19
+currency: EUR
+hasAnnualPayment: false
+features:
+  feature1:
+    description: ''
+    valueType: BOOLEAN
+    defaultValue: true
+    type: DOMAIN
+plans:
+  foo:
+    price: 10
+    unit: ""
+    features:
+      feature2:
+        value: true
