@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "MCP server orchestrating A-MINT and Analysis APIs"
 readme = "README.md"
 authors = [
-    { name = "ISA Group" }
+    { name = "Anonymous" }
 ]
 requires-python = ">=3.10"
 dependencies = [
