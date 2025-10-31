@@ -95,7 +95,7 @@ class MCPWorkflowClient:
         }
         return await self._call_tool("summary", arguments)
 
-    async def run_ipricing(
+    async def run_iPricing(
         self,
         *,
         url: Optional[str],
@@ -107,7 +107,7 @@ class MCPWorkflowClient:
             "pricing_yaml": yaml_content,
             "refresh": refresh,
         }
-        return await self._call_tool("ipricing", arguments)
+        return await self._call_tool("iPricing", arguments)
 
     async def run_subscriptions(
         self,

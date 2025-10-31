@@ -135,7 +135,7 @@ async def optimal(
 
 
 @mcp.tool()
-async def ipricing(
+async def iPricing(
     pricing_url: Optional[str] = None,
     pricing_yaml: Optional[str] = None,
     refresh: bool = False,
@@ -143,23 +143,23 @@ async def ipricing(
     """Return the canonical Pricing2Yaml (iPricing) document."""
 
     if not (pricing_url or pricing_yaml):
-        raise ValueError("ipricing requires pricing_url or pricing_yaml to produce an output.")
+        raise ValueError("iPricing requires pricing_url or pricing_yaml to produce an output.")
 
     logger.info(
         TOOL_INVOKED,
-        tool="ipricing",
+        tool="iPricing",
         pricing_url=pricing_url,
         has_pricing_yaml=bool(pricing_yaml),
         refresh=refresh,
     )
 
-    result = await container.workflow.get_ipricing(
+    result = await container.workflow.get_iPricing(
         url=pricing_url,
         yaml_content=pricing_yaml,
         refresh=refresh,
     )
     pricing_yaml_len = len(result.get("pricing_yaml", "")) if isinstance(result, dict) else None
-    logger.info(TOOL_COMPLETED, tool="ipricing", pricing_yaml_length=pricing_yaml_len)
+    logger.info(TOOL_COMPLETED, tool="iPricing", pricing_yaml_length=pricing_yaml_len)
     return result
 
 

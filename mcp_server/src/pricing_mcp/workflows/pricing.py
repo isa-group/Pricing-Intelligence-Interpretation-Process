@@ -87,10 +87,11 @@ class PricingWorkflow:
         if yaml_content is None:
             yaml_content = await self.ensure_pricing_yaml(url, refresh=refresh)
         try:
+            operation = "filter" if filters else "subscriptions"
             result = await self._analysis.submit_job(
                 AnalysisJobOptions(
                     yaml_content=yaml_content,
-                    operation="subscriptions",
+                    operation=operation,
                     solver=solver,
                     filters=filters,
                 )
@@ -127,7 +128,7 @@ class PricingWorkflow:
             "summary": summary,
         }
 
-    async def get_ipricing(
+    async def get_iPricing(
         self,
         url: Optional[str] = None,
         yaml_content: Optional[str] = None,

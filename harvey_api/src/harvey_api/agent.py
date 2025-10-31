@@ -18,7 +18,7 @@ from .llm_client import (
 )
 
 logger = get_logger(__name__)
-ALLOWED_ACTIONS = {"optimal", "subscriptions", "summary", "ipricing"}
+ALLOWED_ACTIONS = {"optimal", "subscriptions", "summary", "iPricing"}
 SPEC_RESOURCE_ID = "resource://pricing/specification"
 PLAN_REQUEST_MAX_ATTEMPTS = 3
 URL_PATTERN = re.compile(r"https?://[^\s\"'<>]+")
@@ -40,6 +40,20 @@ Rules:
 - Each entry in "actions" must be either a string ("summary") or an object like {"name": "optimal", "objective": "maximize"}. Use objects when overriding the default objective or URL.
 - Only set requires_uploaded_yaml when a user-supplied Pricing2Yaml is mandatory to proceed. Keep it false otherwise to avoid blocking the user.
 - Set use_pricing2yaml_spec to true whenever the user asks about schema, syntax, or validation details so the agent consults the specification excerpt.
+- When present, "filters" MUST follow this FilterCriteria shape used by the analysis API:
+    {
+        "minPrice": number (optional),
+        "maxPrice": number (optional),
+        "features": string[] (optional, list of feature codes/names to include),
+        "usageLimits": Array<Record<string, number>> (optional, e.g. [{"seats": 200}, {"apiRequestsPerDay": 10000}])
+    }
+- Filter parameter semantics and allowed formats:
+  • Price filters (minPrice/maxPrice): numbers only (no currency symbols), in the pricing's base currency as defined in the YAML. Use decimals for cents (e.g., 99.99). minPrice is a lower bound, maxPrice is an upper bound. If absent, defaults are minPrice=0 and maxPrice=∞.
+  • features: array of feature names exactly as they appear in the iPricing YAML (feature.name), case-sensitive. Include only features that must be present in the subscription. If the user asks for a capability, map it to the closest feature name from the YAML (after reading it).
+  • usageLimits: array of objects with one key each; the key is the usage limit name exactly as in the YAML (usageLimit.name), the value is a numeric threshold meaning "at least this value". Examples: [{"Seats": 200}], [{"API requests per day": 10000}]. For boolean usage limits, use 1 to require that capability. Make sure the usage limit exists in the YAML. You may need to infer which litmit or limits correspond to the user's request.
+  • No other keys are permitted in filters. Do not add plan names or add-on names directly; express requirements through features/usage limits/price.
+- Filter inference must be grounded in the iPricing YAML content. Infer filters directly from the user's intent, but always align feature and usage limit names to the actual YAML (feature.name and usageLimit.name). Do not rely on code-side heuristics.
+- If YAML content is not yet available to resolve exact names, include an initial "iPricing" action to fetch it first; then emit the plan with filters using the real names. If uploads are present, prefer their aliases.
 - Keep filters as an object when present; omit the key when no filters are required.
 - You may add extra metadata fields if requested, but never omit the required keys.
 - If required actions are provided later in this prompt, include each one exactly once in the given order. You may add other actions before or after only when justified.
@@ -55,18 +69,19 @@ DEFAULT_REQUIRED_ACTION_PROMPT = """You decide whether tool calls are required t
 
 Available tools:
 - "summary": accepts a pricing URL or uploaded YAML and returns a JSON payload with per-category counts (e.g. numberOfFeatures, numberOfIntegrationFeatures, numberOfSupportFeatures), plan-level metadata (storage limits, API quotas, seat ranges), and contextual flags describing billing or provisioning notes. The response does not list individual subscriptions, but it gives authoritative counts straight from the Pricing2Yaml model.
-- "ipricing": returns the canonical Pricing2Yaml (iPricing) document. It uses the A-MINT pipeline when a pricing URL is supplied and simply returns uploaded YAML when present. Use it whenever the user requests the YAML source, wants to download/export the pricing, or needs to inspect the raw configuration.
+- "iPricing": returns the canonical Pricing2Yaml (iPricing) document. It uses the A-MINT pipeline when a pricing URL is supplied and simply returns uploaded YAML when present. Use it whenever the user requests the YAML source, wants to download/export the pricing, or needs to inspect the raw configuration.
 - "subscriptions": accepts a pricing URL/YAML, optional filters, solver choice, and refresh flag. It enumerates every subscription configuration that matches the filters and returns an array of entries with `subscription` details (plan name, included features/add-ons) plus pricing fields. The payload always includes a top-level `cardinality` showing how many configurations were found.
 - "optimal": accepts the same inputs as `subscriptions` plus an `objective` (minimize or maximize). It runs the optimiser over the configuration space and returns the best matching configuration, including its computed `cost`, `currency`, the chosen `subscription` structure, any selected add-ons, and the analysed `cardinality` for traceability.
 
 Instructions:
 - Analyse the question and determine the minimal set of tool invocations needed for a correct, data-backed answer.
-- Use "ipricing" whenever the user needs the Pricing2Yaml document itself (e.g. requests the YAML, asks for an iPricing file, or wants to export/download the configuration). Do not rely on textual summaries when the raw document is requested.
+- Use "iPricing" whenever the user needs the Pricing2Yaml document itself (e.g. requests the YAML, asks for an iPricing file, or wants to export/download the configuration). Do not rely on textual summaries when the raw document is requested.
 - Use "summary" for requests about feature counts, integration availability, plan metadata, or any aggregated statistics that come from the pricing YAML.
 - When a question references the number or count of features, integrations, limits, add-ons, or any other catalogue items, always include the "summary" tool—even if a YAML snippet is provided. Do not attempt to count items manually from truncated content.
 - Use "subscriptions" when the user asks for the number of subscriptions, configurations, or plan variants.
 - Include an optimal step with objective="minimize" when the user requests the best, cheapest, lowest-cost, or most advantageous option.
 - Include an optimal step with objective="maximize" when the user asks for the most expensive or highest-priced option.
+- When the user specifies constraints that imply filtering (required features, price bounds, specific usage limits like seats/storage/API quotas), ensure the plan includes a "filters" object in the FilterCriteria shape. Only these keys are allowed: minPrice, maxPrice, features (string[]), usageLimits (Array<Record<string, number>>). If the YAML content is not available to ground feature/limit names, include an initial "iPricing" step to fetch the canonical YAML and then align the filter keys to the exact names.
 - Return an empty list only when the question can be answered directly from persistent conversation context without additional tool calls.
 - When multiple pricing URLs or uploaded YAML aliases exist, include a pricing_url field on each required action using the specific URL or alias (e.g. "uploaded://pricing/2") so later planning stays unambiguous.
 
@@ -92,17 +107,37 @@ Available tools:
 - "subscriptions": accepts a pricing URL or uploaded YAML plus optional filters. It enumerates every subscription configuration and returns an array of entries describing each `subscription` (plan code, add-ons, included features) along with pricing meta-data. The response always surfaces a top-level `cardinality` representing the configuration-space size after filters.
 - "optimal": accepts the same inputs as `subscriptions` and an `objective` argument. It runs the optimiser to produce the cheapest (`objective="minimize"`) or most expensive (`objective="maximize"`) configuration, returning the winning `subscription`, its computed `cost`, currency, selected add-ons, and the evaluated `cardinality`.
 - "summary": accepts a pricing URL or uploaded YAML and returns catalogue metrics such as numberOfFeatures, counts per feature category, seat/storage limits, API quotas, and other aggregated insights derived from the Pricing2Yaml document. Use it whenever you need counts or descriptive metadata rather than full optimisation output.
-- "ipricing": accepts a pricing URL or uploaded YAML and returns the canonical Pricing2Yaml document, invoking the A-MINT pipeline when a URL is supplied. Use it whenever the user needs to download, inspect, or export the raw YAML configuration.
+- "iPricing": accepts a pricing URL or uploaded YAML and returns the canonical Pricing2Yaml document, invoking the A-MINT pipeline when a URL is supplied. Use it whenever the user needs to download, inspect, or export the raw YAML configuration.
 
 Planning guidance:
 - Think through the user's intent before emitting actions. Use the workflow tools whenever data, optimisation, or configuration counts are required. Only leave actions empty when the answer is already implicit in the conversation or specification excerpt.
-- When the user asks for the YAML/iPricing document or needs the raw configuration file, include the "ipricing" tool before providing the answer so the YAML can be offered or referenced directly.
+- When the user asks for the YAML/iPricing document or needs the raw configuration file, include the "iPricing" tool before providing the answer so the YAML can be offered or referenced directly.
 - When the user asks for the number of subscriptions, configurations, or plan variants, include the "subscriptions" tool before any optimisation so you obtain the correct cardinality.
 - When the user asks for the number or count of features, integrations, limits, add-ons, or other catalogue elements, include the "summary" tool rather than counting manually—even if a YAML snippet is provided.
 - When the user asks for the cheapest or "best" option (unless they explicitly state otherwise), include an optimal step that minimizes cost ({"name": "optimal", "objective": "minimize"}).
 - When the user asks for the most expensive option, include an optimal step that maximizes cost ({"name": "optimal", "objective": "maximize"}).
 - Set use_pricing2yaml_spec to true when the question involves schema, syntax, or validation details so that the agent consults the Pricing2Yaml reference.
 - Prefer "minizinc" as the solver unless the user explicitly selects an alternative.
+
+ Filter inference policy:
+ - Translate the user's natural-language constraints into a concrete FilterCriteria object when using "subscriptions" (with filters) or "optimal".
+     FilterCriteria schema and semantics:
+     {
+         "minPrice"?: number,       // lower bound in YAML's base currency (no symbols)
+         "maxPrice"?: number,       // upper bound in YAML's base currency (no symbols)
+         "features"?: string[],     // exact feature names (= feature.name in YAML), case-sensitive
+         "usageLimits"?: Array<Record<string, number>> // each object has a single key: the exact usageLimit.name, value is a minimum threshold; for boolean usage limits use 1 to require true
+     }
+ - Ground all filter keys and values in the iPricing YAML. If needed, add an initial "iPricing" step (using the provided URL or uploaded alias) to read feature.name and usageLimit.name and align filters accordingly.
+ - Mapping guidance:
+     • “with SSO” → features: ["SSO"] (match exactly the YAML feature name)
+     • “at least 200 seats” → usageLimits: [{"Seats": 200}]
+     • “under $100” → maxPrice: 100
+     • “API requests ≥ 10k/day” → usageLimits: [{"API requests per day": 10000}] # match the unit to the YAML usageLimit.name.unit. You may need to make some assumptions or conversions here.
+     • Boolean usage limits (e.g., “Audit logs enabled”) → usageLimits: [{"Audit logs": 1}]
+     • If a requirement refers to an add-on, express it through the features/limits it brings (no direct add-on filter key exists).
+ - Place the single filters object at the top level of the plan (not inside each action). The same filters apply to all relevant actions in the plan unless otherwise specified by the user.
+ - Do not invent new keys or structures in filters; only use the allowed schema.
 
 Follow the response format rules that accompany this prompt.
 """
@@ -304,10 +339,21 @@ class HarveyAgent:
             messages.append("Pricing URLs detected/provided: None")
 
         if yaml_alias_map:
-            messages.append("Uploaded Pricing2Yaml aliases (use the alias when referencing uploads):")
+            messages.append(
+                "Uploaded Pricing2Yaml content (full, chunked). Use exact feature.name and usageLimit.name from these documents when constructing filters:"
+            )
+            CHUNK_SIZE = 4000
             for alias, content in yaml_alias_map.items():
-                snippet = content[:500]
-                messages.append(f"{alias}: {snippet}")
+                total_len = len(content or "")
+                if not content:
+                    messages.append(f"{alias}: <empty content>")
+                    continue
+                chunks = [content[i : i + CHUNK_SIZE] for i in range(0, total_len, CHUNK_SIZE)]
+                total_chunks = len(chunks)
+                messages.append(f"{alias}: length={total_len} chars; chunks={total_chunks}")
+                for idx, chunk in enumerate(chunks, start=1):
+                    messages.append(f"YAML[{alias}] chunk {idx}/{total_chunks}:")
+                    messages.append(chunk)
         else:
             messages.append("Uploaded Pricing2Yaml aliases: None")
 
@@ -467,9 +513,9 @@ class HarveyAgent:
                 notes.append(
                     "- subscriptions: needed to compute configuration-space cardinality requested by the user."
                 )
-            elif action.name == "ipricing":
+            elif action.name == "iPricing":
                 notes.append(
-                    "- ipricing: user requested the Pricing2Yaml document, so fetch the canonical YAML via A-MINT."
+                    "- iPricing: user requested the Pricing2Yaml document, so fetch the canonical YAML via A-MINT."
                 )
             elif action.name == "optimal":
                 objective = action.objective or "minimize"
@@ -612,7 +658,7 @@ class HarveyAgent:
 
         if contains_any(
             [
-                "ipricing",
+                "iPricing",
                 "i-pricing",
                 "pricing yaml",
                 "pricing2yaml",
@@ -624,7 +670,7 @@ class HarveyAgent:
                 "yaml output",
             ]
         ):
-            actions.append("ipricing")
+            actions.append("iPricing")
 
         if contains_any(
             [
@@ -974,7 +1020,7 @@ class HarveyAgent:
         yaml_alias_map: Dict[str, str],
     ) -> None:
         total_contexts = len(available_urls) + len(yaml_alias_map)
-        required_actions = {"subscriptions", "optimal", "summary", "ipricing"}
+        required_actions = {"subscriptions", "optimal", "summary", "iPricing"}
         for action in actions:
             reference = action.pricing_url or default_reference
             if reference and not self._is_known_reference(reference, available_urls, yaml_alias_map):
@@ -1117,8 +1163,8 @@ class HarveyAgent:
         resolved_objective = action.objective or objective
         if action.name == "summary":
             return await self._workflow.run_summary(url=url, yaml_content=yaml_content, refresh=refresh)
-        if action.name == "ipricing":
-            return await self._workflow.run_ipricing(
+        if action.name == "iPricing":
+            return await self._workflow.run_iPricing(
                 url=url,
                 yaml_content=yaml_content,
                 refresh=refresh,
@@ -1210,6 +1256,6 @@ class HarveyAgent:
         if plan and plan.get("use_pricing2yaml_spec"):
             return True
         lowered = question.lower()
-        keywords = ["pricing2yaml", "pricing 2 yaml", "yaml spec", "schema", "syntax", "ipricing"]
+        keywords = ["pricing2yaml", "pricing 2 yaml", "yaml spec", "schema", "syntax", "iPricing"]
         return any(keyword in lowered for keyword in keywords)
 
