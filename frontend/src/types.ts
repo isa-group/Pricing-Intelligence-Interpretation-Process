@@ -11,7 +11,29 @@ export interface ChatMessage {
   };
 }
 
-export interface ChatPayload {
+export interface PricingContextItem {
+  id: string;
+  kind: 'url' | 'yaml';
+  label: string;
+  value: string;
+  origin: 'user' | 'detected' | 'preset' | 'agent';
+}
+
+export interface ContextItemInput {
+  kind: PricingContextItem['kind'];
+  label: string;
+  value: string;
+  origin?: PricingContextItem['origin'];
+}
+
+export interface PromptPresetContext extends Omit<ContextItemInput, 'origin'> {
+  origin?: PricingContextItem['origin'];
+}
+
+export interface PromptPreset {
+  id: string;
+  label: string;
+  description: string;
   question: string;
-  pricingYamls: string[];
+  context: PromptPresetContext[];
 }

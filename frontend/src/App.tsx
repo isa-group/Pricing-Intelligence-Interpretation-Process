@@ -2,7 +2,13 @@ import { FormEvent, useEffect, useMemo, useState } from 'react';
 
 import ChatTranscript from './components/ChatTranscript';
 import ControlPanel from './components/ControlPanel';
-import type { ChatMessage, ChatPayload } from './types';
+import type {
+  ChatMessage,
+  ContextItemInput,
+  PricingContextItem,
+  PromptPreset
+} from './types';
+import { PROMPT_PRESETS } from './prompts';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8086';
 
@@ -25,14 +31,47 @@ const extractPricingUrls = (text: string): string[] => {
   return urls;
 };
 
+const isHttpUrl = (value: string): boolean => /^https?:\/\//i.test(value);
+
+const extractHttpReferences = (payload: unknown): string[] => {
+  const results = new Set<string>();
+  const visited = new Set<unknown>();
+
+  const visit = (value: unknown) => {
+    if (value === null || value === undefined) {
+      return;
+    }
+    if (typeof value === 'string') {
+      if (isHttpUrl(value)) {
+        results.add(value);
+      }
+      return;
+    }
+    if (typeof value !== 'object') {
+      return;
+    }
+    if (visited.has(value)) {
+      return;
+    }
+    visited.add(value);
+
+    if (Array.isArray(value)) {
+      value.forEach(visit);
+      return;
+    }
+
+    Object.values(value).forEach(visit);
+  };
+
+  visit(payload);
+  return Array.from(results);
+};
+
 function App() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [question, setQuestion] = useState('');
+  const [contextItems, setContextItems] = useState<PricingContextItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [payload, setPayload] = useState<ChatPayload>({
-    question: '',
-    pricingYamls: []
-  });
-  const [selectedFileNames, setSelectedFileNames] = useState<string[]>([]);
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     if (typeof window === 'undefined') {
       return 'light';
@@ -44,12 +83,12 @@ function App() {
     return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
   });
 
-  const detectedPricingUrls = useMemo(() => extractPricingUrls(payload.question), [payload.question]);
+  const detectedPricingUrls = useMemo(() => extractPricingUrls(question), [question]);
 
   const isSubmitDisabled = useMemo(() => {
-    const hasQuestion = Boolean(payload.question.trim());
+    const hasQuestion = Boolean(question.trim());
     return isLoading || !hasQuestion;
-  }, [payload.question, isLoading]);
+  }, [question, isLoading]);
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -58,39 +97,94 @@ function App() {
     }
   }, [theme]);
 
-  const handleChange = (updated: Partial<ChatPayload>) => {
-    setPayload((prev: ChatPayload) => ({ ...prev, ...updated }));
+  const addContextItems = (inputs: ContextItemInput[]) => {
+    setContextItems((previous) => {
+      if (inputs.length === 0) {
+        return previous;
+      }
+
+      const next = [...previous];
+      inputs.forEach((input) => {
+        const trimmedValue = input.value.trim();
+        if (!trimmedValue) {
+          return;
+        }
+
+        const exists = next.some((item) => item.kind === input.kind && item.value === trimmedValue);
+        if (exists) {
+          return;
+        }
+
+        next.push({
+          id: crypto.randomUUID(),
+          kind: input.kind,
+          label: input.label?.trim() || trimmedValue,
+          value: trimmedValue,
+          origin: input.origin ?? 'user'
+        });
+      });
+      return next;
+    });
+  };
+
+  const addContextItem = (input: ContextItemInput) => {
+    addContextItems([input]);
+  };
+
+  const removeContextItem = (id: string) => {
+    setContextItems((previous) => previous.filter((item) => item.id !== id));
+  };
+
+  const clearContext = () => {
+    setContextItems([]);
   };
 
   const toggleTheme = () => {
     setTheme((previous: 'light' | 'dark') => (previous === 'dark' ? 'light' : 'dark'));
   };
 
-  const handleFileSelect = (files: FileList | null) => {
+  const handleFilesSelected = (files: FileList | null) => {
     if (!files || files.length === 0) {
-      setSelectedFileNames([]);
-      setPayload((prev: ChatPayload) => ({ ...prev, pricingYamls: [] }));
       return;
     }
 
     const fileArray = Array.from(files);
     Promise.all(
       fileArray.map((file) =>
-        file.text().then((content) => ({ name: file.name, content }))
+        file
+          .text()
+          .then((content) => ({ name: file.name, content }))
       )
     )
       .then((results) => {
-        setSelectedFileNames(results.map((result) => result.name));
-        setPayload((prev: ChatPayload) => ({
-          ...prev,
-          pricingYamls: results.map((result) => result.content)
-        }));
+        const inputs: ContextItemInput[] = results
+          .filter((result) => Boolean(result.content.trim()))
+          .map((result) => ({
+            kind: 'yaml',
+            label: result.name,
+            value: result.content,
+            origin: 'user'
+          }));
+
+        if (inputs.length > 0) {
+          addContextItems(inputs);
+        }
+
+        if (inputs.length !== results.length) {
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: crypto.randomUUID(),
+              role: 'assistant',
+              content: 'One or more uploaded files were empty and were skipped.',
+              createdAt: new Date().toISOString()
+            }
+          ]);
+        }
       })
       .catch((error) => {
         console.error('Failed to read YAML file', error);
-        setSelectedFileNames([]);
-        setPayload((prev: ChatPayload) => ({ ...prev, pricingYamls: [] }));
-        setMessages((prev: ChatMessage[]) => [
+        setMessages((prev) => [
           ...prev,
           {
             id: crypto.randomUUID(),
@@ -102,43 +196,82 @@ function App() {
       });
   };
 
-  const handleFilesClear = () => {
-    setSelectedFileNames([]);
-    setPayload((prev: ChatPayload) => ({ ...prev, pricingYamls: [] }));
+  const handlePromptSelect = (preset: PromptPreset) => {
+    setQuestion(preset.question);
+    if (preset.context.length > 0) {
+      addContextItems(
+        preset.context.map((entry) => ({
+          kind: entry.kind,
+          label: entry.label,
+          value: entry.value,
+          origin: entry.origin ?? 'preset'
+        }))
+      );
+    }
+  };
+
+  const handleNewConversation = () => {
+    setMessages([]);
+    setQuestion('');
+    setContextItems([]);
+    setIsLoading(false);
   };
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
     if (isSubmitDisabled) return;
 
-    const question = payload.question.trim();
+    const trimmedQuestion = question.trim();
+    if (!trimmedQuestion) return;
+
+    const contextUrls = contextItems.filter((item) => item.kind === 'url').map((item) => item.value);
+    const contextYamls = contextItems.filter((item) => item.kind === 'yaml').map((item) => item.value);
+
+    const combinedUrlSet = new Set<string>(contextUrls);
+    detectedPricingUrls.forEach((url) => combinedUrlSet.add(url));
+    const combinedUrls = Array.from(combinedUrlSet);
+    const dedupedYamls = Array.from(new Set(contextYamls));
+
+    const newlyDetected = detectedPricingUrls.filter(
+      (url) => !contextUrls.includes(url)
+    );
+    if (newlyDetected.length > 0) {
+      addContextItems(
+        newlyDetected.map((url) => ({
+          kind: 'url',
+          label: url,
+          value: url,
+          origin: 'detected'
+        }))
+      );
+    }
+
+    const body: Record<string, unknown> = {
+      question: trimmedQuestion
+    };
+
+    if (combinedUrls.length === 1) {
+      body.pricing_url = combinedUrls[0];
+    } else if (combinedUrls.length > 1) {
+      body.pricing_urls = combinedUrls;
+    }
+
+    if (dedupedYamls.length === 1) {
+      body.pricing_yaml = dedupedYamls[0];
+    } else if (dedupedYamls.length > 1) {
+      body.pricing_yamls = dedupedYamls;
+    }
 
     const userMessage: ChatMessage = {
       id: crypto.randomUUID(),
       role: 'user',
-      content: question,
+      content: trimmedQuestion,
       createdAt: new Date().toISOString()
     };
-    setMessages((prev: ChatMessage[]) => [...prev, userMessage]);
+    setMessages((prev) => [...prev, userMessage]);
     setIsLoading(true);
 
     try {
-      const body: Record<string, unknown> = {
-        question
-      };
-
-      if (detectedPricingUrls.length === 1) {
-        body.pricing_url = detectedPricingUrls[0];
-      } else if (detectedPricingUrls.length > 1) {
-        body.pricing_urls = detectedPricingUrls;
-      }
-
-      if (payload.pricingYamls.length === 1) {
-        body.pricing_yaml = payload.pricingYamls[0];
-      } else if (payload.pricingYamls.length > 1) {
-        body.pricing_yamls = payload.pricingYamls;
-      }
-
       const response = await fetch(`${API_BASE_URL}/chat`, {
         method: 'POST',
         headers: {
@@ -161,6 +294,7 @@ function App() {
       }
 
       const data = await response.json();
+
       const assistantMessage: ChatMessage = {
         id: crypto.randomUUID(),
         role: 'assistant',
@@ -171,7 +305,21 @@ function App() {
           result: data.result ?? undefined
         }
       };
-      setMessages((prev: ChatMessage[]) => [...prev, assistantMessage]);
+      setMessages((prev) => [...prev, assistantMessage]);
+
+      const planReferences = extractHttpReferences(data?.plan);
+      const resultReferences = extractHttpReferences(data?.result);
+      const agentDiscoveredUrls = [...planReferences, ...resultReferences];
+      if (agentDiscoveredUrls.length > 0) {
+        addContextItems(
+          agentDiscoveredUrls.map((url) => ({
+            kind: 'url',
+            label: url,
+            value: url,
+            origin: 'agent'
+          }))
+        );
+      }
     } catch (error) {
       const assistantMessage: ChatMessage = {
         id: crypto.randomUUID(),
@@ -179,10 +327,10 @@ function App() {
         content: `Error: ${(error as Error).message}`,
         createdAt: new Date().toISOString()
       };
-      setMessages((prev: ChatMessage[]) => [...prev, assistantMessage]);
+      setMessages((prev) => [...prev, assistantMessage]);
     } finally {
       setIsLoading(false);
-      setPayload((prev: ChatPayload) => ({ ...prev, question: '' }));
+      setQuestion('');
     }
   };
 
@@ -191,27 +339,52 @@ function App() {
       <header className="header-bar">
         <div>
           <h1>H.A.R.V.E.Y. Pricing Assistant</h1>
-          <p>Ask about optimal subscriptions and pricing insights using the Holistic Analysis and Regulation Virtual Expert for You (H.A.R.V.E.Y.) agent.</p>
+          <p>
+            Ask about optimal subscriptions and pricing insights using the Holistic Analysis and
+            Regulation Virtual Expert for You (H.A.R.V.E.Y.) agent.
+          </p>
         </div>
-        <button type="button" className="theme-toggle" onClick={toggleTheme} aria-label="Toggle color theme">
-          {theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-        </button>
+        <div className="header-actions">
+          <button
+            type="button"
+            className="session-reset"
+            onClick={handleNewConversation}
+            disabled={isLoading}
+          >
+            New conversation
+          </button>
+          <button
+            type="button"
+            className="theme-toggle"
+            onClick={toggleTheme}
+            aria-label="Toggle color theme"
+          >
+            {theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+          </button>
+        </div>
       </header>
       <main>
         <section className="chat-panel">
-          <ChatTranscript messages={messages} isLoading={isLoading} />
+          <ChatTranscript 
+            messages={messages} 
+            isLoading={isLoading}
+            promptPresets={PROMPT_PRESETS}
+            onPresetSelect={handlePromptSelect}
+          />
         </section>
         <section className="control-panel">
           <ControlPanel
-            payload={payload}
+            question={question}
             detectedPricingUrls={detectedPricingUrls}
+            contextItems={contextItems}
             isSubmitting={isLoading}
             isSubmitDisabled={isSubmitDisabled}
-            onChange={handleChange}
+            onQuestionChange={setQuestion}
             onSubmit={handleSubmit}
-            onFileSelect={handleFileSelect}
-            onClearFiles={handleFilesClear}
-            selectedFileNames={selectedFileNames}
+            onFileSelect={handleFilesSelected}
+            onContextAdd={addContextItem}
+            onContextRemove={removeContextItem}
+            onContextClear={clearContext}
           />
         </section>
       </main>

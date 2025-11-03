@@ -1,18 +1,42 @@
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
-import type { ChatMessage } from '../types';
+import type { ChatMessage, PromptPreset } from '../types';
 
 interface Props {
   messages: ChatMessage[];
   isLoading: boolean;
+  promptPresets?: PromptPreset[];
+  onPresetSelect?: (preset: PromptPreset) => void;
 }
 
-function ChatTranscript({ messages, isLoading }: Props) {
+function ChatTranscript({ messages, isLoading, promptPresets = [], onPresetSelect }: Props) {
   return (
-    <div className="chat-transcript">
+    <div className="chat-transcript" aria-live="polite" aria-busy={isLoading}>
       {messages.length === 0 && !isLoading ? (
-        <div className="empty-state">No messages yet. Ask about a pricing page to get started.</div>
+        <div className="chat-empty-state">
+          <div className="empty-state-header">
+            <div className="empty-state-icon">💬</div>
+            <h2 className="empty-state-title">Welcome to H.A.R.V.E.Y.</h2>
+            <p className="empty-state-description">
+              Your AI assistant for pricing intelligence and optimal subscription recommendations.
+            </p>
+          </div>
+          {promptPresets.length > 0 && onPresetSelect && (
+            <div className="prompt-suggestions">
+              {promptPresets.map((preset) => (
+                <button
+                  key={preset.id}
+                  className="prompt-suggestion-card"
+                  onClick={() => onPresetSelect(preset)}
+                  type="button"
+                >
+                  <span className="prompt-suggestion-text">{preset.label}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       ) : null}
       {messages.map((message) => (
         <article key={message.id} className={`message message-${message.role}`}>

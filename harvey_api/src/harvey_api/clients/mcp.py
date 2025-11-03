@@ -95,7 +95,7 @@ class MCPWorkflowClient:
         }
         return await self._call_tool("summary", arguments)
 
-    async def run_iPricing(
+    async def run_ipricing(
         self,
         *,
         url: Optional[str],
@@ -126,6 +126,22 @@ class MCPWorkflowClient:
             "refresh": refresh,
         }
         return await self._call_tool("subscriptions", arguments)
+
+    async def run_validate(
+        self,
+        *,
+        url: Optional[str],
+        yaml_content: Optional[str],
+        solver: str,
+        refresh: bool,
+    ) -> Dict[str, Any]:
+        arguments: Dict[str, Any] = {
+            "pricing_url": url,
+            "pricing_yaml": yaml_content,
+            "solver": solver,
+            "refresh": refresh,
+        }
+        return await self._call_tool("validate", arguments)
 
     async def run_optimal(
         self,

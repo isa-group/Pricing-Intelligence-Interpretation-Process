@@ -18,6 +18,8 @@ TOOL_COMPLETED = "mcp.tool.completed"
 RESOURCE_REQUEST = "mcp.resource.request"
 RESOURCE_RESPONSE = "mcp.resource.response"
 RESOURCE_ID = "resource://pricing/specification"
+VALID_SOLVERS = {"minizinc", "choco"}
+INVALID_SOLVER_ERROR = "solver must be either 'minizinc' or 'choco'."
 
 _PRICING2YAML_SPEC_PATH = Path(__file__).resolve().parent.joinpath("docs", "pricing2YamlSpecification.md")
 try:
@@ -67,8 +69,8 @@ async def subscriptions(
             "subscriptions requires pricing_url or pricing_yaml to define the configuration space."
         )
 
-    if solver not in {"minizinc", "choco"}:
-        raise ValueError("solver must be either 'minizinc' or 'choco'.")
+    if solver not in VALID_SOLVERS:
+        raise ValueError(INVALID_SOLVER_ERROR)
     logger.info(
         TOOL_INVOKED,
         tool="subscriptions",
@@ -106,8 +108,8 @@ async def optimal(
     if not (pricing_url or pricing_yaml):
         raise ValueError("optimal requires pricing_url or pricing_yaml to run analysis.")
 
-    if solver not in {"minizinc", "choco"}:
-        raise ValueError("solver must be either 'minizinc' or 'choco'.")
+    if solver not in VALID_SOLVERS:
+        raise ValueError(INVALID_SOLVER_ERROR)
 
     if objective not in {"minimize", "maximize"}:
         raise ValueError("objective must be 'minimize' or 'maximize'.")
@@ -135,7 +137,46 @@ async def optimal(
 
 
 @mcp.tool()
-async def iPricing(
+async def validate(
+    pricing_url: Optional[str] = None,
+    pricing_yaml: Optional[str] = None,
+    solver: str = "minizinc",
+    refresh: bool = False,
+) -> Dict[str, Any]:
+    """Validate the pricing configuration against the selected solver."""
+
+    if not (pricing_url or pricing_yaml):
+        raise ValueError("validate requires pricing_url or pricing_yaml to run analysis.")
+
+    if solver not in VALID_SOLVERS:
+        raise ValueError(INVALID_SOLVER_ERROR)
+
+    logger.info(
+        TOOL_INVOKED,
+        tool="validate",
+        pricing_url=pricing_url,
+        has_pricing_yaml=bool(pricing_yaml),
+        solver=solver,
+        refresh=refresh,
+    )
+
+    result = await container.workflow.run_validation(
+        url=pricing_url,
+        solver=solver,
+        refresh=refresh,
+        yaml_content=pricing_yaml,
+    )
+
+    validation_status = None
+    if isinstance(result, dict):
+        validation_status = result.get("result", {}).get("valid")
+
+    logger.info(TOOL_COMPLETED, tool="validate", valid=validation_status)
+    return result
+
+
+@mcp.tool(name="iPricing")
+async def ipricing(
     pricing_url: Optional[str] = None,
     pricing_yaml: Optional[str] = None,
     refresh: bool = False,
@@ -153,7 +194,7 @@ async def iPricing(
         refresh=refresh,
     )
 
-    result = await container.workflow.get_iPricing(
+    result = await container.workflow.get_ipricing(
         url=pricing_url,
         yaml_content=pricing_yaml,
         refresh=refresh,

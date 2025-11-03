@@ -9,6 +9,7 @@ from ..config import get_settings
 from ..logging import get_logger
 
 logger = get_logger(__name__)
+ANALYSIS_FAILURE_EVENT = "pricing.workflow.analysis.failed"
 
 
 class PricingWorkflow:
@@ -64,7 +65,7 @@ class PricingWorkflow:
                 )
             )
         except AnalysisError as exc:  # pragma: no cover - network dependent
-            logger.error("pricing.workflow.analysis.failed", url=url, error=str(exc))
+            logger.error(ANALYSIS_FAILURE_EVENT, url=url, error=str(exc))
             raise
         return {
             "request": {
@@ -97,13 +98,49 @@ class PricingWorkflow:
                 )
             )
         except AnalysisError as exc:  # pragma: no cover - network dependent
-            logger.error("pricing.workflow.analysis.failed", url=url, error=str(exc))
+            logger.error(ANALYSIS_FAILURE_EVENT, url=url, error=str(exc))
             raise
         return {
             "request": {
                 "url": url,
                 "filters": filters,
                 "solver": solver,
+            },
+            "result": result,
+        }
+
+    async def run_validation(
+        self,
+        url: Optional[str] = None,
+        solver: str = "minizinc",
+        refresh: bool = False,
+        yaml_content: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        if solver not in {"minizinc", "choco"}:
+            raise ValueError("solver must be either 'minizinc' or 'choco'.")
+
+        if yaml_content is None:
+            if not url:
+                raise ValueError("Either yaml_content or url is required for validation")
+            yaml_content = await self.ensure_pricing_yaml(url, refresh=refresh)
+
+        try:
+            result = await self._analysis.submit_job(
+                AnalysisJobOptions(
+                    yaml_content=yaml_content,
+                    operation="validate",
+                    solver=solver,
+                )
+            )
+        except AnalysisError as exc:  # pragma: no cover - network dependent
+            logger.error(ANALYSIS_FAILURE_EVENT, url=url, error=str(exc))
+            raise
+
+        return {
+            "request": {
+                "url": url,
+                "solver": solver,
+                "refresh": refresh,
             },
             "result": result,
         }
@@ -128,7 +165,7 @@ class PricingWorkflow:
             "summary": summary,
         }
 
-    async def get_iPricing(
+    async def get_ipricing(
         self,
         url: Optional[str] = None,
         yaml_content: Optional[str] = None,

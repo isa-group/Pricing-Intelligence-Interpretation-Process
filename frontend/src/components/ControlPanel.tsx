@@ -1,33 +1,37 @@
 import { ChangeEvent, FormEvent } from 'react';
 
-import type { ChatPayload } from '../types';
+import ContextManager from './ContextManager';
+import type { ContextItemInput, PricingContextItem } from '../types';
 
 interface Props {
-  payload: ChatPayload;
-  detectedPricingUrls?: string[];
+  question: string;
+  detectedPricingUrls: string[];
+  contextItems: PricingContextItem[];
   isSubmitting: boolean;
   isSubmitDisabled: boolean;
-  onChange: (payload: Partial<ChatPayload>) => void;
+  onQuestionChange: (value: string) => void;
   onSubmit: (event: FormEvent) => void;
   onFileSelect: (files: FileList | null) => void;
-  onClearFiles: () => void;
-  selectedFileNames?: string[];
+  onContextAdd: (input: ContextItemInput) => void;
+  onContextRemove: (id: string) => void;
+  onContextClear: () => void;
 }
 
 function ControlPanel({
-  payload,
+  question,
   detectedPricingUrls,
+  contextItems,
   isSubmitting,
   isSubmitDisabled,
-  onChange,
+  onQuestionChange,
   onSubmit,
   onFileSelect,
-  onClearFiles,
-  selectedFileNames
+  onContextAdd,
+  onContextRemove,
+  onContextClear
 }: Props) {
-  const handleTextChange = (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = event.target;
-    onChange({ [name]: value } as Partial<ChatPayload>);
+  const handleQuestionChange = (event: ChangeEvent<HTMLTextAreaElement>) => {
+    onQuestionChange(event.target.value);
   };
 
   return (
@@ -38,26 +42,21 @@ function ControlPanel({
           name="question"
           required
           rows={4}
-          value={payload.question}
-          onChange={handleTextChange}
+          value={question}
+          onChange={handleQuestionChange}
           placeholder="What is the best plan for a team of five?"
         />
       </label>
 
-      <div className="detected-context">
-        {detectedPricingUrls && detectedPricingUrls.length > 0 ? (
-          <span className="help-text">
-            Detected pricing URL{detectedPricingUrls.length > 1 ? 's' : ''}:{' '}
-            {detectedPricingUrls.join(', ')}
-          </span>
-        ) : (
-          <span className="help-text">
-            Optional context: mention a pricing URL or attach a Pricing2Yaml file if you want grounded insights. Otherwise H.A.R.V.E.Y. will answer with general guidance.
-          </span>
-        )}
-      </div>
+      <ContextManager
+        items={contextItems}
+        detectedUrls={detectedPricingUrls}
+        onAdd={onContextAdd}
+        onRemove={onContextRemove}
+        onClear={onContextClear}
+      />
 
-      <label>
+      <label className="file-upload">
         Upload pricing YAML (optional)
         <input
           type="file"
@@ -70,24 +69,15 @@ function ControlPanel({
           }}
         />
         <span className="help-text">
-          {selectedFileNames && selectedFileNames.length > 0
-            ? `Selected file${selectedFileNames.length > 1 ? 's' : ''}: ${selectedFileNames.join(', ')}`
-            : 'Provide one or more YAML exports to help H.A.R.V.E.Y. analyse local pricing.'}
+          Uploaded YAMLs appear in the pricing context above so you can remove them at any time.
         </span>
-        {selectedFileNames && selectedFileNames.length > 0 ? (
-          <button
-            type="button"
-            className="clear-files-button"
-            onClick={onClearFiles}
-          >
-            Clear uploads
-          </button>
-        ) : null}
       </label>
 
-      <button type="submit" disabled={isSubmitDisabled}>
-        {isSubmitting ? 'Processing...' : 'Ask'}
-      </button>
+      <div className="control-actions">
+        <button type="submit" disabled={isSubmitDisabled}>
+          {isSubmitting ? 'Processing...' : 'Ask'}
+        </button>
+      </div>
     </form>
   );
 }
