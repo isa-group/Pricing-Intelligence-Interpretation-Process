@@ -33,7 +33,7 @@ function SearchPricings({ onContextAdd }: SearchPricingsProps) {
 
   return (
     <section className="control-panel">
-      <form className="control-form">
+      <form>
         <input
           name="pricing-search"
           className="context-add-url"
