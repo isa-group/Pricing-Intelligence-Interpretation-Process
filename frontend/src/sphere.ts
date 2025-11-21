@@ -43,25 +43,33 @@ export async function fetchPricings(
   return await response.json();
 }
 
+export async function fetchPricingYaml(url: string) {
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`Response status: ${response.status}`);
+  }
+  return await response.text();
+}
+
 export interface PricingVersionsResult {
   name: string;
-  collectionName: string | null
+  collectionName: string | null;
   versions: PricingVersion[];
 }
 
 export interface PricingVersion {
-    id: string
-    version: string
-    private: boolean
-    collectionName: string | null
-    extractionDate: string
-    url: string
-    yaml: string
-    analytics: object
-    owner: {
-        id: string
-        username: string
-    }
+  id: string;
+  version: string;
+  private: boolean;
+  collectionName: string | null;
+  extractionDate: string;
+  url: string;
+  yaml: string;
+  analytics: object;
+  owner: {
+    id: string;
+    username: string;
+  };
 }
 
 export async function fetchPricingVersions(
@@ -70,7 +78,7 @@ export async function fetchPricingVersions(
   collectionName?: string | null
 ): Promise<PricingVersionsResult | SphereError> {
   const response = await fetch(
-    `${SPHERE_API}/pricings/${owner}/${name}${collectionName ? '?collectionName=' + collectionName : ''}`,
+    `${SPHERE_API}/pricings/${owner}/${name}${collectionName ? "?collectionName=" + collectionName : ""}`,
     {
       headers: {
         "Content-Type": "application/json",

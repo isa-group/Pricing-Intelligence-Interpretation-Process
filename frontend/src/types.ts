@@ -16,7 +16,7 @@ export interface PricingContextItem {
   kind: 'url' | 'yaml';
   label: string;
   value: string;
-  origin: 'user' | 'detected' | 'preset' | 'agent';
+  origin: 'user' | 'detected' | 'preset' | 'agent' | 'sphere';
 }
 
 export interface ContextItemInput {

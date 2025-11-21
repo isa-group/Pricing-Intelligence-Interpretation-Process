@@ -12,6 +12,7 @@ const ORIGIN_LABEL: Record<PricingContextItem["origin"], string> = {
   detected: "Detected",
   preset: "Preset",
   agent: "Agent",
+  sphere: "SPHERE"
 };
 
 function ContextManagerItem({ item, onRemove }: ContextManagerItemProps) {
@@ -19,7 +20,7 @@ function ContextManagerItem({ item, onRemove }: ContextManagerItemProps) {
     `${SPHERE_EDITOR}?pricingUrl=${url}`;
 
   return (
-    <li key={item.id} className="context-item">
+    <li className="context-item">
       <div>
         <span className="context-item-label">{item.label}</span>
         <span className="context-item-meta">
