@@ -1,4 +1,6 @@
 import { PricingContextItem } from "../types";
+import OpenInNewIcon from "./OpenInNewIcon";
+import TrashIcon from "./TrashIcon";
 
 const SPHERE_EDITOR = import.meta.env.VITE_SPHERE_BASE_URL + "/editor";
 
@@ -33,15 +35,15 @@ function ContextManagerItem({ item, onRemove }: ContextManagerItemProps) {
         className="context-remove"
         onClick={() => onRemove(item.id)}
       >
-        Remove
+        <TrashIcon width={24} height={24} />
       </button>
-      {item.kind === "url" && (
+      {item.kind === "yaml" && (
         <a
           className="context-item-editor-link"
           target="_blank"
           href={formatSphereEditorLink(item.value)}
         >
-          Open editor
+          <OpenInNewIcon width={24} height={24} />
         </a>
       )}
     </li>
