@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { createPortal } from "react-dom";
+import CrossIcon from "./CrossIcon";
 
 interface ModalProps {
   open: boolean;
@@ -26,7 +27,7 @@ function Modal({ open, children, onClose }: ModalProps) {
 
   return createPortal(
     <>
-      <div className="modal-overlay"></div>
+      <div className="modal-overlay" onClick={onClose}></div>
       <div className="modal-content">
         <button
           onKeyDown={(event) => {
@@ -36,7 +37,7 @@ function Modal({ open, children, onClose }: ModalProps) {
           }}
           onClick={onClose}
         >
-          Close Modal
+          <CrossIcon width={24} height={24} />
         </button>
         {children}
       </div>
