@@ -1146,6 +1146,10 @@ input.context-add-url:focus {
   box-shadow: 0 6px 20px rgba(102, 126, 234, 0.35);
 }
 
+.search-ipricings button {
+  border-radius: 0.75rem;
+}
+
 .context-error {
   margin: 0;
   font-size: 0.8rem;
@@ -1660,24 +1664,6 @@ input.context-add-url:focus {
   padding-bottom: 0.25rem;
 }
 
-/* Style the modal-open button (uses existing context-add-url class) */
-.button.context-add-url, button.context-add-url {
-  /* make Search Pricings same size as Clear all / Remove */
-  padding: 0.4rem 0.85rem;
-  border-radius: 0.5rem;
-  border: 1px solid var(--card-border);
-  background: var(--accent-gradient);
-  color: white;
-  font-weight: 700;
-  font-size: 0.85rem;
-  cursor: pointer;
-  box-shadow: 0 8px 22px rgba(102, 126, 234, 0.18);
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
-}
-
-button.context-add-url:hover {
-  transform: translateY(-2px);
-}
 
 /* Compact adjustments when pricing list is inside modal */
 .modal-content .pricing-list {

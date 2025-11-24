@@ -80,28 +80,32 @@ function ControlPanel({
             them at any time.
           </span>
         </label>
-
+        <section className="search-ipricings">
+          <h3> Add SPHERE iPricing to context (optional)</h3>
+          <p style={{ margin: "1em auto" }} className="help-text">
+            Add iPricings with our SPHERE integration (our iPricing repository).
+          </p>
+          <button
+            type="button"
+            className="context-add-url"
+            onClick={handleOpenModal}
+          >
+            Search pricings
+          </button>
+          <p style={{ margin: "1em auto" }} className="help-text">
+            You can further customize the search if you type a pricing name in
+            the search bar.
+          </p>
+          <Modal open={showPricingModal} onClose={handleCloseModal}>
+            <SearchPricings onContextAdd={onContextAdd} />
+          </Modal>
+        </section>
         <div className="control-actions">
           <button type="submit" disabled={isSubmitDisabled}>
             {isSubmitting ? "Processing..." : "Ask"}
           </button>
         </div>
       </form>
-      <section>
-        <h3> Add SPHERE iPricing to context (optional)</h3>
-        <button
-          type="button"
-          className="context-add-url"
-          onClick={handleOpenModal}
-        >
-          Search pricings
-        </button>
-        <Modal open={showPricingModal} onClose={handleCloseModal}>
-          <SearchPricings
-            onContextAdd={onContextAdd}
-          />
-        </Modal>
-      </section>
     </>
   );
 }
