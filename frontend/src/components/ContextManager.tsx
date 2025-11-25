@@ -1,12 +1,12 @@
 import { useMemo, useState } from "react";
 
-import type { ContextItemInput, PricingContextItem } from "../types";
+import type { ContextInputType, PricingContextItem } from "../types";
 import ContextManagerItem from "./ContextManagerItem";
 
 interface Props {
   items: PricingContextItem[];
   detectedUrls: string[];
-  onAdd: (input: ContextItemInput) => void;
+  onAdd: (input: ContextInputType) => void;
   onRemove: (id: string) => void;
   onClear: () => void;
 }

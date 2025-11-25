@@ -1,13 +1,13 @@
 import { usePricingVersions } from "../hooks/useVersion";
 import { fetchPricingYaml } from "../sphere";
-import { ContextItemInput } from "../types";
+import { SphereContextItemInput } from "../types";
 import PricingVersionLoader from "./PricingVersionLoader";
 
 interface PricingVersionProps {
   owner: string;
   name: string;
   collectionName?: string | null;
-  onContextAdd: (input: ContextItemInput) => void;
+  onContextAdd: (input: SphereContextItemInput) => void;
 }
 
 function PricingVersions({
@@ -33,11 +33,10 @@ function PricingVersions({
   }
 
   const calculateLabel = (
-    owner: string,
     name: string,
-    collectionName: string | null
+    collectionName?: string | null
   ) =>
-    `(SPHERE) ${collectionName ? collectionName + "/" : ""}${name} uploaded by ${owner}`;
+    `${collectionName ? collectionName + "/" : ""}${name}`;
 
   const calculateTotalVersionLabel = () => {
     const res = "version";
@@ -47,13 +46,18 @@ function PricingVersions({
     return res + "s";
   };
 
-  const handleAddSpherePricing = async (url: string) => {
+  const handleAddSpherePricing = async (url: string, version: string) => {
     const yamlFile = await fetchPricingYaml(url);
     onContextAdd({
       kind: "yaml",
-      label: calculateLabel(owner, name, collectionName ?? null),
+      label: calculateLabel(name, collectionName),
       value: yamlFile,
       origin: "sphere",
+      owner: owner,
+      yamlPath: url,
+      pricingName: name,
+      version: version,
+      collection: collectionName ?? null,
     });
   };
 
@@ -72,7 +76,7 @@ function PricingVersions({
             </a>
             <button
               className="pricing-add-btn icon"
-              onClick={() => handleAddSpherePricing(item.yaml)}
+              onClick={() => handleAddSpherePricing(item.yaml, item.version)}
             >
               Add
             </button>

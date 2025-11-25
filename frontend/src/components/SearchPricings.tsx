@@ -2,12 +2,11 @@ import { useState } from "react";
 import Pagination from "./Pagination";
 import { usePricings } from "../hooks/usePricings";
 import PricingsList from "./PricingList";
-import { ContextItemInput } from "../types";
+import { SphereContextItemInput } from "../types";
 import PricingListLoader from "./PricingListLoader";
-import NotAMatch from "./NotAMatch";
 
 interface SearchPricingsProps {
-  onContextAdd: (input: ContextItemInput) => void;
+  onContextAdd: (input: SphereContextItemInput) => void;
 }
 
 function SearchPricings({ onContextAdd }: SearchPricingsProps) {

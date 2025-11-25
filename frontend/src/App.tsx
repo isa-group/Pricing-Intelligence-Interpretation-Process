@@ -4,9 +4,9 @@ import ChatTranscript from "./components/ChatTranscript";
 import ControlPanel from "./components/ControlPanel";
 import type {
   ChatMessage,
-  ContextItemInput,
   PricingContextItem,
   PromptPreset,
+  ContextInputType,
 } from "./types";
 import { PROMPT_PRESETS } from "./prompts";
 import { ThemeContext, ThemeType } from "./context/themeContext";
@@ -50,7 +50,7 @@ function App() {
     }
   }, [theme]);
 
-  const addContextItems = (inputs: ContextItemInput[]) => {
+  const addContextItems = (inputs: ContextInputType[]) => {
     setContextItems((previous) => {
       if (inputs.length === 0) {
         return previous;
@@ -70,19 +70,34 @@ function App() {
           return;
         }
 
-        next.push({
-          id: crypto.randomUUID(),
-          kind: input.kind,
-          label: input.label?.trim() || trimmedValue,
-          value: trimmedValue,
-          origin: input.origin ?? "user",
-        });
+        if (input.origin && input.origin === "sphere") {
+          next.push({
+            id: crypto.randomUUID(),
+            kind: "yaml",
+            value: input.value,
+            label: input.label,
+            origin: "sphere",
+            yamlPath: input.yamlPath,
+            owner: input.owner,
+            pricingName: input.pricingName,
+            version: input.version,
+            collection: input.collection,
+          });
+        } else {
+          next.push({
+            id: crypto.randomUUID(),
+            kind: input.kind,
+            label: input.label?.trim() || trimmedValue,
+            value: trimmedValue,
+            origin: input.origin ?? "user",
+          });
+        }
       });
       return next;
     });
   };
 
-  const addContextItem = (input: ContextItemInput) => {
+  const addContextItem = (input: ContextInputType) => {
     addContextItems([input]);
   };
 
@@ -112,7 +127,7 @@ function App() {
       )
     )
       .then((results) => {
-        const inputs: ContextItemInput[] = results
+        const inputs: ContextInputType[] = results
           .filter((result) => Boolean(result.content.trim()))
           .map((result) => ({
             kind: "yaml",

@@ -1,4 +1,4 @@
-export type ChatRole = 'user' | 'assistant';
+export type ChatRole = "user" | "assistant";
 
 export interface ChatMessage {
   id: string;
@@ -11,23 +11,32 @@ export interface ChatMessage {
   };
 }
 
-export interface PricingContextItem {
-  id: string;
-  kind: 'url' | 'yaml';
+export type Kinds = "url" | "yaml";
+export type Origins = "user" | "detected" | "preset" | "agent";
+
+export type PricingContextItem =
+  | (BaseContextItemInput & { id: string })
+  | (SphereContextItemInput & { id: string });
+
+export type ContextInputType = BaseContextItemInput | SphereContextItemInput;
+
+export interface BaseContextItemInput {
+  kind: Kinds;
   label: string;
   value: string;
-  origin: 'user' | 'detected' | 'preset' | 'agent' | 'sphere';
+  origin?: Origins;
 }
 
-export interface ContextItemInput {
-  kind: PricingContextItem['kind'];
+export interface SphereContextItemInput {
+  kind: "yaml";
   label: string;
   value: string;
-  origin?: PricingContextItem['origin'];
-}
-
-export interface PromptPresetContext extends Omit<ContextItemInput, 'origin'> {
-  origin?: PricingContextItem['origin'];
+  origin: "sphere";
+  owner: string;
+  collection: string | null;
+  pricingName: string;
+  version: string
+  yamlPath: string;
 }
 
 export interface PromptPreset {
@@ -35,5 +44,5 @@ export interface PromptPreset {
   label: string;
   description: string;
   question: string;
-  context: PromptPresetContext[];
+  context: BaseContextItemInput[];
 }

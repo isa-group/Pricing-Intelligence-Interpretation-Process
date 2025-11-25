@@ -9,13 +9,44 @@ interface ContextManagerItemProps {
   onRemove: (id: string) => void;
 }
 
-const ORIGIN_LABEL: Record<PricingContextItem["origin"], string> = {
-  user: "Manual",
-  detected: "Detected",
-  preset: "Preset",
-  agent: "Agent",
-  sphere: "SPHERE"
-};
+function computeOriginLabel(pricingContextItem: PricingContextItem): string {
+  switch (pricingContextItem.origin) {
+    case "user":
+      return "Manual";
+    case "detected":
+      return "Detected";
+    case "preset":
+      return "Preset";
+    case "agent":
+      return "Agent";
+    case "sphere":
+      return "SPHERE";
+    default:
+      return "";
+  }
+}
+
+function computeContextItemMetadata(
+  pricingContextItem: PricingContextItem
+): string {
+  let res = `${pricingContextItem.kind.toUpperCase()} · ${computeOriginLabel(pricingContextItem)} `;
+  switch (pricingContextItem.origin) {
+    case "agent":
+    case "detected":
+    case "preset":
+    case "user": {
+      const now = new Date();
+      res += `· ${now.toLocaleString()}`;
+      return res;
+    }
+    case "sphere": {
+      res += `· ${pricingContextItem.owner} · ${pricingContextItem.version}`;
+      return res;
+    }
+    default:
+      return "";
+  }
+}
 
 function ContextManagerItem({ item, onRemove }: ContextManagerItemProps) {
   const formatSphereEditorLink = (url: string) =>
@@ -26,8 +57,7 @@ function ContextManagerItem({ item, onRemove }: ContextManagerItemProps) {
       <div>
         <span className="context-item-label">{item.label}</span>
         <span className="context-item-meta">
-          {item.kind === "url" ? "URL" : "YAML"} &middot;{" "}
-          {ORIGIN_LABEL[item.origin]}
+          {computeContextItemMetadata(item)}
         </span>
       </div>
       <button

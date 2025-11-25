@@ -1,6 +1,6 @@
 import { ChangeEvent, FormEvent, useState } from "react";
 import ContextManager from "./ContextManager";
-import type { ContextItemInput, PricingContextItem } from "../types";
+import type { ContextInputType, PricingContextItem } from "../types";
 import SearchPricings from "./SearchPricings";
 import Modal from "./Modal";
 
@@ -13,7 +13,7 @@ interface Props {
   onQuestionChange: (value: string) => void;
   onSubmit: (event: FormEvent) => void;
   onFileSelect: (files: FileList | null) => void;
-  onContextAdd: (input: ContextItemInput) => void;
+  onContextAdd: (input: ContextInputType) => void;
   onContextRemove: (id: string) => void;
   onContextClear: () => void;
 }

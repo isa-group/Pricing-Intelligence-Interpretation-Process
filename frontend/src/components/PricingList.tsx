@@ -1,11 +1,11 @@
 import { PricingSearchResultItem } from "../sphere";
-import { ContextItemInput } from "../types";
+import { SphereContextItemInput } from "../types";
 import NotAMatch from "./NotAMatch";
 import PricingVersions from "./PricingVersion";
 
 interface PricingListProps {
   pricings: PricingSearchResultItem[];
-  onContextAdd: (input: ContextItemInput) => void;
+  onContextAdd: (input: SphereContextItemInput) => void;
 }
 
 function PricingsList({ pricings, onContextAdd }: PricingListProps) {
@@ -13,7 +13,7 @@ function PricingsList({ pricings, onContextAdd }: PricingListProps) {
     `${pricing.owner}-${pricing.name}-${pricing.version}-${pricing.collectionName ?? "nocollection"}`;
 
   if (pricings.length === 0) {
-    return <NotAMatch />
+    return <NotAMatch />;
   }
 
   return (
