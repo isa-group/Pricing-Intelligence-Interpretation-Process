@@ -3,6 +3,8 @@ import OpenInNewIcon from "./OpenInNewIcon";
 import TrashIcon from "./TrashIcon";
 
 const SPHERE_EDITOR = import.meta.env.VITE_SPHERE_BASE_URL + "/editor";
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8086";
 
 interface ContextManagerItemProps {
   item: PricingContextItem;
@@ -52,6 +54,18 @@ function ContextManagerItem({ item, onRemove }: ContextManagerItemProps) {
   const formatSphereEditorLink = (url: string) =>
     `${SPHERE_EDITOR}?pricingUrl=${url}`;
 
+  const formatEditorLink = () => {
+    switch(item.origin) {
+      case "preset":
+      case "user":
+        return formatSphereEditorLink(`${API_BASE_URL}/static/${item.id}`)
+      case "sphere":
+        return formatSphereEditorLink(item.yamlPath)
+      default:
+        return "#"
+    }
+  }
+
   return (
     <li className="context-item">
       <div>
@@ -71,7 +85,7 @@ function ContextManagerItem({ item, onRemove }: ContextManagerItemProps) {
         <a
           className="context-item-editor-link"
           target="_blank"
-          href={formatSphereEditorLink(item.value)}
+          href={formatEditorLink()}
         >
           <OpenInNewIcon width={24} height={24} />
         </a>

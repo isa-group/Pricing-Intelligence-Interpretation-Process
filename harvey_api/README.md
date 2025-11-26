@@ -9,6 +9,7 @@ keys are required in the MCP server when used this way, aligning with MCP’s cl
 
 ```bash
 cd harvey_api
+mkdir src/harvey_api/static
 uv venv
 source .venv/bin/activate
 uv pip install -e .[dev]
@@ -25,7 +26,8 @@ The service exposes:
 
 - `GET /health` – health probe
 - `POST /chat` – conversational endpoint for H.A.R.V.E.Y.
-- `POST /upload` - upload YAML assets
+- `POST /upload` – upload YAML assets
+- `DELETE /pricing/{filename}` – delete uploaded YAML assets
 
 ## Docker
 

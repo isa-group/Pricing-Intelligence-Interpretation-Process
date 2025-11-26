@@ -1,3 +1,6 @@
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8086";
+
 export function extractPricingUrls(text: string): string[] {
   const matches = text.match(/https?:\/\/[^\s)]+/gi) ?? [];
   const urls: string[] = [];
@@ -53,4 +56,37 @@ export function extractHttpReferences(payload: unknown): string[] {
 
   visit(payload);
   return Array.from(results);
+}
+
+interface UploadResponse {
+  filename: string
+  relative_url: string
+}
+
+export async function uploadYamlPricing(filename: string, content: string): Promise<string> {
+  const form = new FormData();
+  form.append(
+    "file",
+    new File([content], filename, { type: "application/yaml" })
+  );
+  const response = await fetch(API_BASE_URL + "/upload", {
+    method: "POST",
+    body: form,
+  });
+  if (!response.ok) {
+    throw new Error(`Upload failed for ${filename}`)
+  }
+
+  const json = await response.json()
+  return json.filename
+}
+
+export async function deleteYamlPricing(filename: string): Promise<void> {
+  const response = await fetch(API_BASE_URL + "/pricing/" + filename, {
+    method: "DELETE",
+  });
+  if (!response.ok) {
+    throw new Error(`Cannot delete item ${filename}`)
+  }
+
 }

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -89,11 +90,20 @@ async def chat(request: ChatRequest) -> ChatResponse:
 
 @app.post('/upload')
 async def upload_and_save_pricing(file: UploadFile):
-    if file.content_type != "application/yaml":
-        raise HTTPException(status_code=400, detail="Invalid Content-Type. Only application/yaml is supported")
+    print(file.content_type)
+    if not (file.content_type == "application/yaml" or file.content_type == "application/x-yaml"):
+        raise HTTPException(status_code=400, detail=f"Invalid Content-Type: {file.content_type}. Only application/yaml is supported")
     contents = await file.read()
     file_path = STATIC_DIR / file.filename
     with open(file_path, "wb") as pricing:
         pricing.write(contents)
 
     return { "filename": file.filename, "relative_path": f"/static/{file.filename}" }
+
+@app.delete('/pricing/{filename}', status_code=204)
+async def delete_pricing(filename: str):
+    print(STATIC_DIR / filename)
+    if (not os.path.exists(STATIC_DIR / filename)):
+        raise HTTPException(status_code=404, detail=f"File with name {filename} doesn't exist")
+    os.remove(STATIC_DIR / filename)
+    return

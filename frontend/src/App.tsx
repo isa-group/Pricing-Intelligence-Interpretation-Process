@@ -10,7 +10,12 @@ import type {
 } from "./types";
 import { PROMPT_PRESETS } from "./prompts";
 import { ThemeContext, ThemeType } from "./context/themeContext";
-import { extractHttpReferences, extractPricingUrls } from "./utils";
+import {
+  deleteYamlPricing,
+  extractHttpReferences,
+  extractPricingUrls,
+  uploadYamlPricing,
+} from "./utils";
 
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8086";
@@ -43,12 +48,39 @@ function App() {
     return isLoading || !hasQuestion;
   }, [question, isLoading]);
 
+  const getNotUploadedUserAndPresetItems = () =>
+    contextItems.filter(
+      (item) =>
+        item.origin &&
+        item.kind === "yaml" &&
+        (item.origin === "user" || item.origin === "preset") &&
+        !item.uploaded
+    );
+
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
     if (typeof window !== "undefined") {
       window.localStorage.setItem("pricing-theme", theme);
     }
-  }, [theme]);
+
+    const itemsToUpload = getNotUploadedUserAndPresetItems();
+    if (itemsToUpload.length > 0) {
+      const uploadPromises = itemsToUpload.map((item) =>
+        uploadYamlPricing(item.id, item.value)
+      );
+      Promise.all(uploadPromises)
+        .then((uploadedItems) => {
+          setContextItems((previousItems) =>
+            previousItems.map((item) =>
+              uploadedItems.includes(item.id)
+                ? { ...item, uploaded: true }
+                : item
+            )
+          );
+        })
+        .catch((err) => console.error("Upload failed", err));
+    }
+  }, [theme, contextItems]);
 
   const addContextItems = (inputs: ContextInputType[]) => {
     setContextItems((previous) => {
@@ -90,6 +122,7 @@ function App() {
             label: input.label?.trim() || trimmedValue,
             value: trimmedValue,
             origin: input.origin ?? "user",
+            uploaded: false,
           });
         }
       });
@@ -102,6 +135,18 @@ function App() {
   };
 
   const removeContextItem = (id: string) => {
+    const deletePromises = contextItems
+      .filter(
+        (item) =>
+          item.id === id &&
+          item.kind === "yaml" &&
+          item.origin &&
+          (item.origin === "user" || item.origin === "preset")
+      )
+      .map((item) => deleteYamlPricing(item.id));
+    if (deletePromises.length > 0) {
+      Promise.all(deletePromises);
+    }
     setContextItems((previous) => previous.filter((item) => item.id !== id));
   };
 
@@ -134,6 +179,7 @@ function App() {
             label: result.name,
             value: result.content,
             origin: "user",
+            uploaded: false,
           }));
 
         if (inputs.length > 0) {
@@ -175,6 +221,7 @@ function App() {
           kind: entry.kind,
           label: entry.label,
           value: entry.value,
+          uploaded: false,
           origin: entry.origin ?? "preset",
         }))
       );
@@ -217,6 +264,7 @@ function App() {
           label: url,
           value: url,
           origin: "detected",
+          uploaded: false,
         }))
       );
     }
@@ -292,6 +340,7 @@ function App() {
             label: url,
             value: url,
             origin: "agent",
+            uploaded: false,
           }))
         );
       }

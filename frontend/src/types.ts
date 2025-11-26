@@ -22,6 +22,7 @@ export type ContextInputType = BaseContextItemInput | SphereContextItemInput;
 
 export interface BaseContextItemInput {
   kind: Kinds;
+  uploaded: boolean
   label: string;
   value: string;
   origin?: Origins;
