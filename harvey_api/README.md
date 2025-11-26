@@ -25,6 +25,7 @@ The service exposes:
 
 - `GET /health` – health probe
 - `POST /chat` – conversational endpoint for H.A.R.V.E.Y.
+- `POST /upload` - upload YAML assets
 
 ## Docker
 
@@ -43,3 +44,13 @@ HARVEY acts as an MCP client and follows the 2025‑06‑18 spec:
 - Does not advertise optional client capabilities for roots, sampling, or elicitation; these can be
 	enabled in a future iteration if servers require them. Planning and LLM usage happen client‑side.
 ```
+
+## Misc
+
+Upload a YAML file to HARVEY
+
+```bash
+curl -F 'file=@path/to/file.yaml;type=application/yaml' http://localhost:8086/upload
+# Response example {"filename":"file.yaml","relative_path":"/static/file.yaml"} 
+```
+

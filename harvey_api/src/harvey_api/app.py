@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, UploadFile, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, HttpUrl
 
 from .clients import MCPClientError
@@ -17,6 +19,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+BASE_DIR = Path(__file__).parent.resolve()
+STATIC_DIR = BASE_DIR / "static"
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 class ChatRequest(BaseModel):
     question: str
@@ -81,3 +86,14 @@ async def chat(request: ChatRequest) -> ChatResponse:
         plan=response_payload["plan"],
         result=response_payload["result"],
     )
+
+@app.post('/upload')
+async def upload_and_save_pricing(file: UploadFile):
+    if file.content_type != "application/yaml":
+        raise HTTPException(status_code=400, detail="Invalid Content-Type. Only application/yaml is supported")
+    contents = await file.read()
+    file_path = STATIC_DIR / file.filename
+    with open(file_path, "wb") as pricing:
+        pricing.write(contents)
+
+    return { "filename": file.filename, "relative_path": f"/static/{file.filename}" }
