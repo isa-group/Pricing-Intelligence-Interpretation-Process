@@ -173,3 +173,6 @@ logs/prompts/
 comparison_results/detailed_comparison_results.json
 logs/
 .copilot/
+
+# Harvey static folder
+harvey_api/src/harvey_api/static
