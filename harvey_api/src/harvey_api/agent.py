@@ -12,9 +12,8 @@ from .clients import MCPClientError, MCPWorkflowClient
 from .config import get_settings
 from .logging import get_logger
 from .llm_client import (
-    DEFAULT_GEMINI_BASE_URL,
-    GeminiClientConfig,
-    GeminiOpenAIClient,
+    OpenAIClientConfig,
+    OpenAIClient,
 )
 
 logger = get_logger(__name__)
@@ -26,135 +25,169 @@ URL_PATTERN = re.compile(r"https?://[^\s\"'<>]+")
 PLAN_RESPONSE_FORMAT_INSTRUCTIONS = """Respond with a single JSON object that matches this schema (JSON order is flexible):
 {
     "actions": [...],
-    "pricing_url": string|null,
     "requires_uploaded_yaml": boolean,
-    "intent_summary": string,
-    "filters": object|null,
-    "objective": "minimize"|"maximize",
-    "solver": "minizinc"|"choco",
-    "refresh": boolean,
     "use_pricing2yaml_spec": boolean
+}
+Action entries:
+- A string ("summary", "iPricing", "validate") OR
+- An object with at least {"name": "subscriptions"|"optimal"|"summary"|"iPricing"|"validate"} and optional keys:
+    • "objective": "minimize"|"maximize" (only for optimal)
+    • "pricing_url": string (required per action when multiple pricing contexts exist)
+    • "filters": FilterCriteria (only include when the specific action needs filtering)
+    • "solver": "minizinc"|"choco" (when the specific action needs to pick a solver)
+FilterCriteria shape (when used inside an action object):
+{
+  "minPrice"?: number,
+  "maxPrice"?: number,
+  "features"?: string[],
+  "usageLimits"?: Array<Record<string, number>>
 }
 Rules:
 - Produce valid JSON with double quotes only. Do not wrap the response in Markdown fences or natural language.
-- Each entry in "actions" must be either a string ("summary") or an object like {"name": "optimal", "objective": "maximize"}. Use objects when overriding the default objective or URL.
-- Include "validate" in actions when the question asks you to check, test, or confirm that a pricing configuration or YAML is valid.
-- Only set requires_uploaded_yaml when a user-supplied Pricing2Yaml is mandatory to proceed. Keep it false otherwise to avoid blocking the user.
+- Include "validate" when the user asks to check, test, or confirm a pricing YAML/configuration.
+- Only set requires_uploaded_yaml when a user-supplied Pricing2Yaml is mandatory to proceed.
 - Set use_pricing2yaml_spec to true whenever the user asks about schema, syntax, or validation details so the agent consults the specification excerpt.
-- When present, "filters" MUST follow this FilterCriteria shape used by the analysis API:
-    {
-        "minPrice": number (optional),
-        "maxPrice": number (optional),
-        "features": string[] (optional, list of feature codes/names to include),
-        "usageLimits": Array<Record<string, number>> (optional, e.g. [{"seats": 200}, {"apiRequestsPerDay": 10000}])
-    }
-- Filter parameter semantics and allowed formats:
-  • Price filters (minPrice/maxPrice): numbers only (no currency symbols), in the pricing's base currency as defined in the YAML. Use decimals for cents (e.g., 99.99). minPrice is a lower bound, maxPrice is an upper bound. If absent, defaults are minPrice=0 and maxPrice=∞.
-  • features: array of feature names exactly as they appear in the iPricing YAML (feature.name), case-sensitive. Include only features that must be present in the subscription. If the user asks for a capability, map it to the closest feature name from the YAML (after reading it).
-  • usageLimits: array of objects with one key each; the key is the usage limit name exactly as in the YAML (usageLimit.name), the value is a numeric threshold meaning "at least this value". Examples: [{"Seats": 200}], [{"API requests per day": 10000}]. For boolean usage limits, use 1 to require that capability. Make sure the usage limit exists in the YAML. You may need to infer which litmit or limits correspond to the user's request.
-  • No other keys are permitted in filters. Do not add plan names or add-on names directly; express requirements through features/usage limits/price.
-- Filter inference must be grounded in the iPricing YAML content. Infer filters directly from the user's intent, but always align feature and usage limit names to the actual YAML (feature.name and usageLimit.name). Do not rely on code-side heuristics.
-- If YAML content is not yet available to resolve exact names, include an initial "iPricing" action to fetch it first; then emit the plan with filters using the real names. If uploads are present, prefer their aliases.
-- Keep filters as an object when present; omit the key when no filters are required.
-- You may add extra metadata fields if requested, but never omit the required keys.
-- If required actions are provided later in this prompt, include each one exactly once in the given order. You may add other actions before or after only when justified.
-- Use "minizinc" as the solver unless the user explicitly asks for another option.
-- Prefer the provided pricing URL; fall back to uploaded://pricing when working solely with uploaded YAML content.
-- Leave actions empty only when you can confidently answer the question without calling any tools.
-- When multiple pricing URLs or uploaded YAML aliases are available, set pricing_url on each action to the specific URL or alias that action should use (e.g. "uploaded://pricing/2").
+- Put filters inside the specific action(s) that require them (e.g. subscriptions, optimal). Do NOT emit a top-level filters field.
+- Price filters: numeric only (no symbols), base currency of the YAML. minPrice = lower bound, maxPrice = upper bound.
+- features: exact feature.name values from the YAML (case-sensitive). Include only features that must be present.
+- usageLimits: array of single-key objects where key = usageLimit.name and value = minimum threshold (boolean limits use 1).
+- No other filter keys are allowed (only minPrice, maxPrice, features, usageLimits).
+- If feature / usageLimit names can't be grounded yet (YAML not fetched), include an initial "iPricing" action first; subsequent actions may then include grounded filters.
+- Use "minizinc" as the default solver unless the user explicitly asks for "choco". Specify the solver inside each action that needs it.
+- When multiple pricing URLs or uploaded YAML aliases are available, set pricing_url per action.
+- Leave actions empty only when the answer is directly inferable without tool calls.
 Example response:
-{"actions":["subscriptions",{"name":"optimal","objective":"minimize"},{"name":"optimal","objective":"maximize"}],"pricing_url":"uploaded://pricing","requires_uploaded_yaml":false,"intent_summary":"Explain reasoning here","filters":null,"objective":"minimize","solver":"minizinc","refresh":true,"use_pricing2yaml_spec":false}
+{"actions":["subscriptions",{"name":"optimal","objective":"minimize","solver":"minizinc","pricing_url":"uploaded://pricing","filters":{"features":["SSO"],"minPrice":10}}],"requires_uploaded_yaml":false,"use_pricing2yaml_spec":false}
 """
-
-DEFAULT_REQUIRED_ACTION_PROMPT = """You decide whether tool calls are required to answer a user's pricing question accurately.
-
-Available tools:
-- "summary": accepts a pricing URL or uploaded YAML and returns a JSON payload with per-category counts (e.g. numberOfFeatures, numberOfIntegrationFeatures, numberOfSupportFeatures), plan-level metadata (storage limits, API quotas, seat ranges), and contextual flags describing billing or provisioning notes. The response does not list individual subscriptions, but it gives authoritative counts straight from the Pricing2Yaml model.
-- "iPricing": returns the canonical Pricing2Yaml (iPricing) document. It uses the A-MINT pipeline when a pricing URL is supplied and simply returns uploaded YAML when present. Use it whenever the user requests the YAML source, wants to download/export the pricing, or needs to inspect the raw configuration.
-- "subscriptions": accepts a pricing URL/YAML, optional filters, solver choice, and refresh flag. It enumerates every subscription configuration that matches the filters and returns an array of entries with `subscription` details (plan name, included features/add-ons) plus pricing fields. The payload always includes a top-level `cardinality` showing how many configurations were found.
-- "optimal": accepts the same inputs as `subscriptions` plus an `objective` (minimize or maximize). It runs the optimiser over the configuration space and returns the best matching configuration, including its computed `cost`, `currency`, the chosen `subscription` structure, any selected add-ons, and the analysed `cardinality` for traceability.
-- "validate": accepts a pricing URL or uploaded YAML plus an optional solver. It checks the Pricing2Yaml configuration against the requested engine (MiniZinc or Choco) and returns whether it is valid along with any reported errors.
-
-Instructions:
-- Analyse the question and determine the minimal set of tool invocations needed for a correct, data-backed answer.
-- Use "iPricing" whenever the user needs the Pricing2Yaml document itself (e.g. requests the YAML, asks for an iPricing file, or wants to export/download the configuration). Do not rely on textual summaries when the raw document is requested.
-- Use "summary" for requests about feature counts, integration availability, plan metadata, or any aggregated statistics that come from the pricing YAML.
-- Use "validate" whenever the user asks to confirm that a pricing YAML or configuration is valid, compliant, or free of modelling errors for a given solver.
-- When a question references the number or count of features, integrations, limits, add-ons, or any other catalogue items, always include the "summary" tool—even if a YAML snippet is provided. Do not attempt to count items manually from truncated content.
-- Use "subscriptions" when the user asks for the number of subscriptions, configurations, or plan variants.
-- Include an optimal step with objective="minimize" when the user requests the best, cheapest, lowest-cost, or most advantageous option.
-- Include an optimal step with objective="maximize" when the user asks for the most expensive or highest-priced option.
-- When the user specifies constraints that imply filtering (required features, price bounds, specific usage limits like seats/storage/API quotas), ensure the plan includes a "filters" object in the FilterCriteria shape. Only these keys are allowed: minPrice, maxPrice, features (string[]), usageLimits (Array<Record<string, number>>). If the YAML content is not available to ground feature/limit names, include an initial "iPricing" step to fetch the canonical YAML and then align the filter keys to the exact names.
-- Return an empty list only when the question can be answered directly from persistent conversation context without additional tool calls.
-- When multiple pricing URLs or uploaded YAML aliases exist, include a pricing_url field on each required action using the specific URL or alias (e.g. "uploaded://pricing/2") so later planning stays unambiguous.
-
-Mandatory rules:
-- If the question mentions "how many" or "number of" together with "feature", "integration", "limit", "addon", or similar catalogue terms, the response MUST include "summary" in required_actions.
-- If the question explicitly asks to validate, verify, or check the correctness of a pricing YAML/configuration, the response MUST include "validate" in required_actions.
-
-Respond with strictly valid JSON using this schema:
-{
-    "required_actions": [...]
-}
-Each entry must be either a string ("summary") or an object like {"name": "optimal", "objective": "maximize"}."""
-
 
 @dataclass
 class PlannedAction:
     name: str
     objective: Optional[str] = None
     pricing_url: Optional[str] = None
+    filters: Optional[Dict[str, Any]] = None  # Action-scoped filters (subscriptions/optimal only)
+    solver: Optional[str] = None  # Action-scoped solver (subscriptions/optimal/validate)
 
-DEFAULT_PLAN_PROMPT = """You orchestrate pricing intelligence workflows on behalf of H.A.R.V.E.Y., the Holistic Analysis and Regulation Virtual Expert for You.
+DEFAULT_PLAN_PROMPT = """You are H.A.R.V.E.Y., an expert AI agent designed to reason about pricing models using the ReAct pattern (Reasoning + Acting).
+Your goal is to create a precise execution plan to answer the user's question based on the provided pricing context (URLs or uploaded Pricing2Yaml files).
 
-Available tools:
-- "subscriptions": accepts a pricing URL or uploaded YAML plus optional filters. It enumerates every subscription configuration and returns an array of entries describing each `subscription` (plan code, add-ons, included features) along with pricing meta-data. The response always surfaces a top-level `cardinality` representing the configuration-space size after filters.
-- "optimal": accepts the same inputs as `subscriptions` and an `objective` argument. It runs the optimiser to produce the cheapest (`objective="minimize"`) or most expensive (`objective="maximize"`) configuration, returning the winning `subscription`, its computed `cost`, currency, selected add-ons, and the evaluated `cardinality`.
-- "summary": accepts a pricing URL or uploaded YAML and returns catalogue metrics such as numberOfFeatures, counts per feature category, seat/storage limits, API quotas, and other aggregated insights derived from the Pricing2Yaml document. Use it whenever you need counts or descriptive metadata rather than full optimisation output.
-- "iPricing": accepts a pricing URL or uploaded YAML and returns the canonical Pricing2Yaml document, invoking the A-MINT pipeline when a URL is supplied. Use it whenever the user needs to download, inspect, or export the raw YAML configuration.
-- "validate": accepts a pricing URL or uploaded YAML and an optional solver argument. It verifies the Pricing2Yaml input against the solver to surface validation success or detailed errors.
+## Context Awareness & Grounding
 
-Planning guidance:
-- Think through the user's intent before emitting actions. Use the workflow tools whenever data, optimisation, or configuration counts are required. Only leave actions empty when the answer is already implicit in the conversation or specification excerpt.
-- When the user asks for the YAML/iPricing document or needs the raw configuration file, include the "iPricing" tool before providing the answer so the YAML can be offered or referenced directly.
-- When the user asks for the number of subscriptions, configurations, or plan variants, include the "subscriptions" tool before any optimisation so you obtain the correct cardinality.
-- When the user asks for the number or count of features, integrations, limits, add-ons, or other catalogue elements, include the "summary" tool rather than counting manually—even if a YAML snippet is provided.
-- When the user needs to confirm that a pricing model is valid, runs without solver errors, or complies with the specification, include the "validate" tool.
-- When the user asks for the cheapest or "best" option (unless they explicitly state otherwise), include an optimal step that minimizes cost ({"name": "optimal", "objective": "minimize"}).
-- When the user asks for the most expensive option, include an optimal step that maximizes cost ({"name": "optimal", "objective": "maximize"}).
-- Set use_pricing2yaml_spec to true when the question involves schema, syntax, or validation details so that the agent consults the Pricing2Yaml reference.
-- Prefer "minizinc" as the solver unless the user explicitly selects an alternative.
+You have full access to the uploaded Pricing2Yaml (iPricing) files.
+**CRITICAL:** You MUST analyze the YAML content to identify the exact keys used for features (`feature.name`) and usage limits (`usageLimit.name`) **before** constructing any filters.
 
- Filter inference policy:
- - Translate the user's natural-language constraints into a concrete FilterCriteria object when using "subscriptions" (with filters) or "optimal".
-     FilterCriteria schema and semantics:
-     {
-         "minPrice"?: number,       // lower bound in YAML's base currency (no symbols)
-         "maxPrice"?: number,       // upper bound in YAML's base currency (no symbols)
-         "features"?: string[],     // exact feature names (= feature.name in YAML), case-sensitive
-         "usageLimits"?: Array<Record<string, number>> // each object has a single key: the exact usageLimit.name, value is a minimum threshold; for boolean usage limits use 1 to require true
-     }
- - Ground all filter keys and values in the iPricing YAML. If needed, add an initial "iPricing" step (using the provided URL or uploaded alias) to read feature.name and usageLimit.name and align filters accordingly.
- - Mapping guidance:
-     • “with SSO” → features: ["SSO"] (match exactly the YAML feature name)
-     • “at least 200 seats” → usageLimits: [{"Seats": 200}]
-     • “under $100” → maxPrice: 100
-     • “API requests ≥ 10k/day” → usageLimits: [{"API requests per day": 10000}] # match the unit to the YAML usageLimit.name.unit. You may need to make some assumptions or conversions here.
-     • Boolean usage limits (e.g., “Audit logs enabled”) → usageLimits: [{"Audit logs": 1}]
-     • If a requirement refers to an add-on, express it through the features/limits it brings (no direct add-on filter key exists).
- - Place the single filters object at the top level of the plan (not inside each action). The same filters apply to all relevant actions in the plan unless otherwise specified by the user.
- - Do not invent new keys or structures in filters; only use the allowed schema.
+### Per-Context Grounding
 
-Follow the response format rules that accompany this prompt.
+When handling multiple pricings (e.g., comparing SaaS A vs. SaaS B), you MUST generate **separate actions** for each pricing source/URL.
+
+* Filters for SaaS A must use **SaaS A’s** exact feature/limit names.
+* Filters for SaaS B must use **SaaS B’s** exact feature/limit names.
+* **MANDATORY**: You MUST explicitly set the `pricing_url` field in every action object to the specific URL or alias being queried. Do not rely on defaults when multiple contexts exist.
+
+Do **not** assume that pricings share schemas or naming conventions. Even when functionality is similar, naming and structure can differ significantly. Examples:
+
+* SaaS A may label a feature as `"SSO"` while SaaS B uses `"Single Sign-On"`.
+* One platform may express “unlimited users” as a usage limit, while another defines it as part of a feature.
+* Two providers may address the same functional requirement through different feature sets, different limit entries, or not include it at all.
+
+### Feature Mapping
+
+A single user requirement (e.g., “security”) may map to different schema entities in different pricings:
+
+* **Pricing A** → one feature (`"Enterprise Shield"`)
+* **Pricing B** → multiple features (`"SSO"`, `"Audit Logs"`)
+  You MUST infer the relevant feature(s) **for each specific pricing context** and include all features required to satisfy the user’s intent.
+
+### Usage Limit Logic
+
+* **Thresholds**: Interpret the request as constraints.
+
+  * “More than 10” → set threshold value to `11`
+  * “At least 10” → set threshold value to `10`
+* **Unit Conversion**: Convert user-requested units to the unit used in the YAML.
+
+  * If the user says “1 GB” but the YAML defines limits in MB, convert and use `1024`.
+
+### Semantic Understanding
+
+When available, examine feature and usage limit **descriptions** in the iPricing YAML files.
+Use these descriptions to accurately interpret user intent and to map it to the correct features and limits within each pricing.
+
+### Available Tools (MCP Resources)
+- "subscriptions": Enumerates valid subscription configurations.
+  - Inputs: `pricing_url` (or YAML context), `filters` (optional), `solver` (optional).
+  - Output: List of subscriptions with plan details, costs, and total cardinality.
+  - Use when: The user asks for a list of plans, counts of configurations, or "what options do I have?".
+
+- "optimal": Finds the best configuration based on an objective.
+  - Inputs: `pricing_url`, `filters`, `objective` ("minimize"|"maximize"), `solver`.
+  - Output: The single best subscription configuration, its cost, and breakdown.
+  - Use when: The user asks for the "cheapest", "best", "most expensive", or "optimal" configuration. 
+    - Minimize: Returns the least expensive configuration among those that satisfy the provided filters (e.g., the minimum cost subscription that meets the criteria).
+    - Maximize: Returns the most expensive configuration available or, when filters apply, the most expensive among those that satisfy them (e.g., the maximum revenue a SaaS provider could obtain from a single subscription).
+- "summary": Provides high-level catalogue metrics.
+  - Inputs: `pricing_url`.
+  - Output: Counts of features, limits, and metadata (e.g., "numberOfFeatures": 50).
+  - Use when: The user asks for general stats like "the number of features" or "the type of limits in a pricing". DO NOT use it for compare different pricings, to get a summary of the pricing details or as a general overview. It is meant for structural insights only.
+
+- "iPricing": Retrieves the raw Pricing2Yaml document.
+  - Inputs: `pricing_url`.
+  - Output: The raw YAML content.
+  - Use when: When a new URL is provided and its content is not yet available.
+
+- "validate": Checks the validity of the pricing model.
+  - Inputs: `pricing_url`, `solver`.
+  - Output: Validation status and error messages.
+  - Use when: The user asks "is this valid?", "check for errors", "verify the model/pricing", or "fix/find any inconsistencies".
+
+### Planning Strategy
+1. **Analyze**: Understand the user's intent.
+2. **Check Content**: If a provided URL does not have corresponding YAML content in the context, you MUST plan an `iPricing` action to fetch it.
+3. **Ground**: Check the provided YAML content. Identify exact feature/limit names for filters.
+4. **Plan**: Construct the sequence of actions.
+   - If the user needs to model the pricing yaml from the new URL -> `iPricing`.
+   - If the user needs counts/stats -> `summary`.
+   - If the user needs specific plans -> `subscriptions` (apply grounded filters).
+   - If the user needs the best option (or the cheapest/most expensive configuration) -> `optimal` (apply grounded filters + objective).
+   - If the user needs validation -> `validate`.
+
+### Filter Construction Rules
+- Translate natural language constraints into the `FilterCriteria` schema.
+- **Schema**:
+  ```json
+  {
+      "minPrice": number,
+      "maxPrice": number,
+      "features": ["ExactFeatureNameFromYAML"],
+      "usageLimits": [{"ExactUsageLimitNameFromYAML": number}]
+  }
+  ```
+- **Grounding**: You MUST use the exact `feature.name` and `usageLimit.name` from the provided YAML content.
+- **Mapping**:
+  - "with SSO" -> `features: ["SSO"]` (if "SSO" is the name in YAML).
+  - "at least 10 users" -> `usageLimits: [{"Users": 10}]` (if "Users" is the name in YAML).
+  - "under $50" -> `maxPrice: 50`.
+
+### Response Format
+Return a JSON object with the plan. See the accompanying format instructions.
 """
 
 DEFAULT_ANSWER_PROMPT = """You are H.A.R.V.E.Y., the Holistic Analysis and Regulation Virtual Expert for You.
-Use the provided plan, tool payload (which may be empty), and optional Pricing2Yaml excerpt to answer conversationally.
-- Explain recommended plans or insights and reference key metrics such as price, objective value, or configuration cardinality when available.
-- If use_pricing2yaml_spec is true, consult the supplied specification excerpt for authoritative details.
-- When a Pricing2Yaml specification excerpt is provided, describe the concept using the excerpt instead of asking the user for documentation. Only request additional material if the excerpt is explicitly empty.
-- When no actions ran, clarify that the response is based on existing context and highlight any assumptions.
-- If tooling reported errors or missing inputs, communicate them plainly and request the needed information.
+You have executed a pricing analysis plan and now need to formulate the final answer.
+
+### Inputs
+1. **User Question**: The original request.
+2. **Plan**: The actions you decided to take.
+3. **Tool Results**: The JSON payloads returned by the tools (e.g., optimal plan details, subscription counts).
+4. **Pricing Context**: The raw Pricing2Yaml content (if available).
+
+### Instructions
+- **Synthesize**: Combine the quantitative results from the tools with the qualitative details from the Pricing Context.
+- **Be Precise**: If the tool returned a specific price (e.g., "10.0 USD") or plan name, use it exactly.
+- **Explain**: If you performed an optimization (e.g., finding the cheapest plan), explain *why* it was chosen (e.g., "The 'Pro' plan is the cheapest option at $10 that includes the required 'SSO' feature").
+- **Contextualize**: Use the Pricing Context to add descriptions or details that might not be in the tool output (e.g., what "SSO" actually entails if described in the YAML).
+- **Fallback**: If tools failed or returned empty results, explain what happened based on the context.
+- **Specification**: If `use_pricing2yaml_spec` was true, refer to the provided specification excerpt for authoritative answers.
 """
 
 
@@ -162,15 +195,13 @@ class HarveyAgent:
     def __init__(self, workflow: MCPWorkflowClient) -> None:
         self._workflow = workflow
         settings = get_settings()
-        if not settings.gemini_api_key:
-            raise RuntimeError("GEMINI_API_KEY is required for natural language orchestration")
-        client_config = GeminiClientConfig(
-            api_key=settings.gemini_api_key,
-            model=settings.gemini_model,
-            base_url=settings.gemini_base_url or DEFAULT_GEMINI_BASE_URL,
-            better_model=settings.gemini_better_model,
+        if not settings.openai_api_key:
+            raise RuntimeError("OPENAI_API_KEY is required for natural language orchestration")
+        client_config = OpenAIClientConfig(
+            api_key=settings.openai_api_key,
+            model=settings.openai_model,
         )
-        self._llm = GeminiOpenAIClient(client_config)
+        self._llm = OpenAIClient(client_config)
         self._planning_prompt: Optional[str] = None
         self._answer_prompt: Optional[str] = None
         self._spec_excerpt: Optional[str] = None
@@ -195,10 +226,8 @@ class HarveyAgent:
         self._validate_yaml_requirement(plan, provided_yamls)
 
         actions = self._normalize_actions(plan.get("actions"))
-        solver = plan.get("solver", "minizinc")
-        objective = plan.get("objective", "minimize")
-        filters = self._extract_filters(plan.get("filters"))
-        refresh = bool(plan.get("refresh", False))
+        objective = self._resolve_default_objective(plan)
+        self._apply_legacy_fields(plan, actions)
         default_reference = self._resolve_default_reference(
             plan_reference=plan.get("pricing_url"),
             plan_references=plan.get("pricing_urls"),
@@ -210,21 +239,40 @@ class HarveyAgent:
             actions=actions,
             default_reference=default_reference,
             available_urls=combined_urls,
-            refresh=refresh,
-            solver=solver,
-            filters=filters,
+            # filters now action-scoped; legacy top-level filters already distributed.
             objective=objective,
             yaml_alias_map=yaml_alias_map,
         )
 
         payload_for_answer, result_payload = self._compose_results_payload(actions, results, last_payload)
-        answer = await self._generate_answer(question, plan, payload_for_answer)
+        answer = await self._generate_answer(question, plan, payload_for_answer, yaml_alias_map)
 
-        return {
-            "plan": plan,
-            "result": result_payload,
-            "answer": answer,
-        }
+        self._strip_deprecated_plan_fields(plan)
+        return {"plan": plan, "result": result_payload, "answer": answer}
+
+    def _resolve_default_objective(self, plan: Dict[str, Any]) -> str:
+        legacy_objective = plan.get("objective")
+        return legacy_objective if legacy_objective in ("minimize", "maximize") else "minimize"
+
+    def _apply_legacy_fields(self, plan: Dict[str, Any], actions: List[PlannedAction]) -> None:
+        """Distribute legacy top-level fields to per-action when needed (backward compatibility)."""
+        # Legacy top-level filters
+        legacy_filters = self._extract_filters(plan.get("filters"))
+        if legacy_filters:
+            for action in actions:
+                if action.name in ("subscriptions", "optimal") and action.filters is None:
+                    action.filters = legacy_filters
+
+        # Legacy top-level solver
+        legacy_solver = plan.get("solver")
+        if legacy_solver in ("minizinc", "choco"):
+            for action in actions:
+                if action.name in ("subscriptions", "optimal", "validate") and action.solver is None:
+                    action.solver = legacy_solver
+
+    def _strip_deprecated_plan_fields(self, plan: Dict[str, Any]) -> None:
+        for deprecated in ["intent_summary", "filters", "objective", "pricing_url", "solver", "refresh"]:
+            plan.pop(deprecated, None)
 
     async def _generate_plan(
         self,
@@ -233,11 +281,6 @@ class HarveyAgent:
         yaml_alias_map: Dict[str, str],
     ) -> Dict[str, Any]:
         plan_prompt = self._get_planning_prompt()
-        required_actions_raw = await self._infer_required_actions(
-            question=question,
-            pricing_urls=pricing_urls,
-            yaml_alias_map=yaml_alias_map,
-        )
         spec_excerpt: Optional[str] = None
         if self._should_include_spec(question):
             spec_excerpt = await self._get_spec_excerpt()
@@ -248,7 +291,6 @@ class HarveyAgent:
             pricing_urls=pricing_urls,
             yaml_alias_map=yaml_alias_map,
             spec_excerpt=spec_excerpt,
-            required_actions=required_actions_raw,
         )
 
         attempt_errors: List[str] = []
@@ -284,46 +326,12 @@ class HarveyAgent:
                 attempt_errors.append(str(exc))
                 continue
 
-            if self._actions_satisfy_requirements(plan.get("actions"), required_actions_raw):
-                return plan
-
-            attempt_errors.append(
-                self._describe_required_action_mismatch(
-                    plan.get("actions"), required_actions_raw
-                )
-            )
+            return plan
 
         raise ValueError(
             "Failed to obtain a planning response that satisfies tool requirements. "
             + (attempt_errors[-1] if attempt_errors else "")
         )
-
-    async def _infer_required_actions(
-        self,
-        *,
-        question: str,
-        pricing_urls: List[str],
-        yaml_alias_map: Dict[str, str],
-    ) -> List[Any]:
-        lowered = (question or "").lower().strip()
-        if not lowered:
-            return []
-
-        try:
-            classified = await self._classify_required_actions(
-                question=question,
-                pricing_urls=pricing_urls,
-                yaml_alias_map=yaml_alias_map,
-            )
-        except Exception as exc:  # pragma: no cover - defensive guard
-            logger.warning("harvey.agent.required_actions.classifier_failed", error=str(exc))
-            classified = None
-
-        if classified is not None:
-            return classified
-
-        logger.info("harvey.agent.required_actions.fallback", question=question)
-        return self._collect_inferred_actions(lowered)
 
     def _build_plan_request_messages(
         self,
@@ -333,13 +341,11 @@ class HarveyAgent:
         pricing_urls: List[str],
         yaml_alias_map: Dict[str, str],
         spec_excerpt: Optional[str],
-        required_actions: List[Any],
     ) -> List[str]:
         messages: List[str] = [plan_prompt, PLAN_RESPONSE_FORMAT_INSTRUCTIONS]
         messages.append(f"Question: {question}")
         self._append_pricing_urls_message(messages, pricing_urls)
         self._append_yaml_alias_messages(messages, yaml_alias_map)
-        self._append_required_actions_message(messages, required_actions)
         self._append_spec_excerpt_message(messages, spec_excerpt)
         return messages
 
@@ -356,14 +362,16 @@ class HarveyAgent:
         messages: List[str],
         yaml_alias_map: Dict[str, str],
         chunk_size: int = 4000,
+        header: Optional[str] = None,
     ) -> None:
         if not yaml_alias_map:
             messages.append("Uploaded Pricing2Yaml aliases: None")
             return
 
-        messages.append(
+        default_header = (
             "Uploaded Pricing2Yaml content (full, chunked). Use exact feature.name and usageLimit.name from these documents when constructing filters:"
         )
+        messages.append(header or default_header)
         for alias, content in yaml_alias_map.items():
             total_len = len(content or "")
             if not content:
@@ -376,25 +384,6 @@ class HarveyAgent:
                 messages.append(f"YAML[{alias}] chunk {idx}/{total_chunks}:")
                 messages.append(chunk)
 
-    def _append_required_actions_message(
-        self,
-        messages: List[str],
-        required_actions: List[Any],
-    ) -> None:
-        if not required_actions:
-            return
-
-        messages.append(
-            "Required actions (include each exactly once in plan.actions in this order):"
-        )
-        messages.append(json.dumps(required_actions, ensure_ascii=False))
-        requirement_notes = self._explain_required_actions(
-            self._normalize_requirements(required_actions)
-        )
-        if requirement_notes:
-            messages.append("Rationale for required actions:")
-            messages.append(requirement_notes)
-
     def _append_spec_excerpt_message(
         self,
         messages: List[str],
@@ -405,171 +394,12 @@ class HarveyAgent:
         messages.append("Pricing2Yaml specification:")
         messages.append(spec_excerpt)
 
-    async def _classify_required_actions(
-        self,
-        *,
-        question: str,
-        pricing_urls: List[str],
-        yaml_alias_map: Dict[str, str],
-    ) -> Optional[List[Any]]:
-        messages: List[str] = [DEFAULT_REQUIRED_ACTION_PROMPT]
-        messages.append(f"Question: {question}")
-        if pricing_urls:
-            messages.append("Pricing URLs detected/provided:")
-            messages.append(", ".join(pricing_urls))
-        else:
-            messages.append("Pricing URLs detected/provided: None")
-
-        if yaml_alias_map:
-            messages.append("Uploaded Pricing2Yaml aliases:")
-            messages.append(", ".join(yaml_alias_map.keys()))
-        else:
-            messages.append("Uploaded Pricing2Yaml aliases: None")
-
-        try:
-            text = await asyncio.to_thread(
-                self._llm.make_full_request,
-                "\n".join(messages),
-                json_output=True,
-            )
-        except ValueError as exc:
-            logger.warning(
-                "harvey.agent.required_actions.invalid_json",
-                question=question,
-                error=str(exc),
-            )
-            return None
-
-        try:
-            parsed = json.loads(text)
-        except json.JSONDecodeError as exc:
-            logger.warning(
-                "harvey.agent.required_actions.parse_error",
-                question=question,
-                error=str(exc),
-            )
-            return None
-
-        if isinstance(parsed, list):
-            candidate = parsed
-        elif isinstance(parsed, dict):
-            candidate = parsed.get("required_actions") or parsed.get("actions")
-        else:
-            logger.warning(
-                "harvey.agent.required_actions.unexpected_payload",
-                question=question,
-                payload_type=type(parsed).__name__,
-            )
-            return None
-
-        if candidate is None:
-            return []
-        if not isinstance(candidate, list):
-            logger.warning(
-                "harvey.agent.required_actions.not_list",
-                question=question,
-                payload_type=type(candidate).__name__,
-            )
-            return None
-
-        return candidate
-
-    def _actions_satisfy_requirements(
-        self, plan_actions: Any, required_actions: List[Any]
-    ) -> bool:
-        if not required_actions:
-            return True
-        normalized_plan = self._normalize_actions(plan_actions)
-        normalized_requirements = self._normalize_requirements(required_actions)
-        if not normalized_requirements:
-            return True
-
-        required_index = 0
-        for action in normalized_plan:
-            required_action = normalized_requirements[required_index]
-            if action.name != required_action.name:
-                continue
-            if required_action.name == "optimal" and required_action.objective:
-                candidate_objective = action.objective or "minimize"
-                if candidate_objective != required_action.objective:
-                    continue
-            required_index += 1
-            if required_index == len(normalized_requirements):
-                return True
-
-        return False
-
-    def _normalize_requirements(self, requirements: List[Any]) -> List[PlannedAction]:
-        normalized: List[PlannedAction] = []
-        for entry in requirements:
-            planned = self._parse_action_entry(entry, silent=True)
-            if planned:
-                normalized.append(planned)
-        return normalized
-
-    def _describe_required_action_mismatch(
-        self, plan_actions: Any, required_actions: List[Any]
-    ) -> str:
-        normalized_plan = self._normalize_actions(plan_actions)
-        normalized_requirements = self._normalize_requirements(required_actions)
-        if not normalized_requirements:
-            return "Plan.actions satisfied requirements."
-
-        expected = [self._format_action_descriptor(action) for action in normalized_requirements]
-        actual = [self._format_action_descriptor(action) for action in normalized_plan]
-        if not normalized_plan:
-            return "Plan.actions was empty but required steps were expected: " + ", ".join(expected)
-
-        return (
-            "Plan.actions must include the required sequence "
-            + ", ".join(expected)
-            + " (in order). Actual sequence: "
-            + ", ".join(actual)
-        )
-
-    def _format_action_descriptor(self, action: PlannedAction) -> str:
-        if action.name == "optimal":
-            objective = action.objective or "minimize"
-            return f"optimal({objective})"
-        return action.name
-
-    def _explain_required_actions(self, requirements: List[PlannedAction]) -> str:
-        if not requirements:
-            return ""
-
-        notes: List[str] = []
-        for action in requirements:
-            if action.name == "subscriptions":
-                notes.append(
-                    "- subscriptions: needed to compute configuration-space cardinality requested by the user."
-                )
-            elif action.name == "iPricing":
-                notes.append(
-                    "- iPricing: user requested the Pricing2Yaml document, so fetch the canonical YAML via A-MINT."
-                )
-            elif action.name == "optimal":
-                objective = action.objective or "minimize"
-                if objective == "maximize":
-                    notes.append(
-                        "- optimal (maximize): user asked for the most expensive option, so run the optimizer with objective=maximize."
-                    )
-                else:
-                    notes.append(
-                        "- optimal (minimize): user asked for the best or cheapest option, so run the optimizer with the minimizing objective."
-                    )
-            elif action.name == "summary":
-                notes.append(
-                    "- summary: user requested a high-level narrative without additional computations."
-                )
-            elif action.name == "validate":
-                notes.append(
-                    "- validate: user needs to confirm the Pricing2Yaml passes solver validation and to surface any modelling errors."
-                )
-
-        return "\n".join(notes)
-
     async def _generate_answer(
-        self, question: str, plan: Dict[str, Any], payload: Dict[str, Any]
+        self,
+        question: str,
+        plan: Dict[str, Any],
+        payload: Dict[str, Any],
+        yaml_alias_map: Dict[str, str],
     ) -> str:
         answer_prompt = self._get_answer_prompt()
         messages = [answer_prompt]
@@ -586,6 +416,13 @@ class HarveyAgent:
         for index, chunk in enumerate(payload_chunks, start=1):
             messages.append(f"Tool payload chunk {index}/{total_chunks}:")
             messages.append(chunk)
+
+        self._append_yaml_alias_messages(
+            messages,
+            yaml_alias_map,
+            header="Reference Pricing2Yaml content (for context):",
+        )
+
         if self._should_include_spec(question, plan):
             spec_excerpt = await self._get_spec_excerpt()
             if spec_excerpt:
@@ -675,9 +512,7 @@ class HarveyAgent:
             "requires_uploaded_yaml": False,
             "intent_summary": self._build_intent_summary(question),
             "objective": "minimize",
-            "solver": "minizinc",
             "filters": None,
-            "refresh": bool(yaml_alias_map),
             "use_pricing2yaml_spec": False,
         }
 
@@ -941,22 +776,25 @@ class HarveyAgent:
         return normalized
 
     def _parse_action_entry(self, entry: Any, *, silent: bool = False) -> Optional[PlannedAction]:
+        """Convert a raw action entry into a PlannedAction with minimal branching.
+        Accepts either a string (action name) or an object containing name plus optional fields.
+        Invalid inputs return None and optionally log a warning.
+        """
         def warn(event: str, **kwargs: Any) -> None:
             if not silent:
                 logger.warning(event, **kwargs)
 
+        # Fast path: simple string action
         if isinstance(entry, str):
-            if entry in ALLOWED_ACTIONS:
-                return PlannedAction(name=entry)
-            warn("harvey.agent.unsupported_action", requested=entry)
-            return None
+            return PlannedAction(name=entry) if entry in ALLOWED_ACTIONS else None
 
+        # Must be a dict from here
         if not isinstance(entry, dict):
             warn("harvey.agent.unrecognized_action_entry", entry=entry)
             return None
 
         name = entry.get("name")
-        if not isinstance(name, str) or name not in ALLOWED_ACTIONS:
+        if name not in ALLOWED_ACTIONS:
             warn("harvey.agent.invalid_action_object", requested=entry)
             return None
 
@@ -970,7 +808,23 @@ class HarveyAgent:
             warn("harvey.agent.invalid_pricing_url", action=name, pricing_url=pricing_url)
             pricing_url = None
 
-        return PlannedAction(name=name, objective=objective, pricing_url=pricing_url)
+        raw_filters = entry.get("filters")
+        action_filters = self._extract_filters(raw_filters) if raw_filters is not None else None
+        if raw_filters is not None and action_filters is None:
+            warn("harvey.agent.invalid_action_filters", action=name, filters=raw_filters)
+
+        solver = entry.get("solver")
+        if solver not in (None, "minizinc", "choco"):
+            warn("harvey.agent.invalid_solver", action=name, solver=solver)
+            solver = None
+
+        return PlannedAction(
+            name=name,
+            objective=objective,
+            pricing_url=pricing_url,
+            filters=action_filters,
+            solver=solver,
+        )
 
     def _extract_filters(self, raw_filters: Any) -> Optional[Dict[str, Any]]:
         if raw_filters is None or raw_filters == {}:
@@ -1016,9 +870,6 @@ class HarveyAgent:
         actions: List[PlannedAction],
         default_reference: Optional[str],
         available_urls: List[str],
-        refresh: bool,
-        solver: str,
-        filters: Optional[Dict[str, Any]],
         objective: str,
         yaml_alias_map: Dict[str, str],
     ) -> Tuple[List[Dict[str, Any]], Optional[Dict[str, Any]]]:
@@ -1033,32 +884,22 @@ class HarveyAgent:
         )
 
         results: List[Dict[str, Any]] = []
-        transformed_urls: Set[str] = set()
         last_payload: Optional[Dict[str, Any]] = None
-        refresh_requested = bool(refresh)
 
         for index, action in enumerate(actions):
-            action_url, effective_refresh, action_yaml, context_reference = self._prepare_action_inputs(
+            action_url, action_yaml, context_reference = self._prepare_action_inputs(
                 action=action,
                 default_reference=default_reference,
                 available_urls=available_urls,
                 yaml_alias_map=yaml_alias_map,
-                refresh_requested=refresh_requested,
-                transformed_urls=transformed_urls,
             )
 
             payload = await self._run_single_action(
                 action=action,
                 url=action_url,
-                refresh=effective_refresh,
-                solver=solver,
-                filters=filters,
                 objective=objective,
                 yaml_content=action_yaml,
             )
-
-            if effective_refresh and action_url:
-                transformed_urls.add(action_url)
 
             step_record: Dict[str, Any] = {
                 "index": index,
@@ -1067,6 +908,10 @@ class HarveyAgent:
             }
             if action.name == "optimal":
                 step_record["objective"] = action.objective or objective
+            if action.filters is not None and action.name in ("subscriptions", "optimal"):
+                step_record["filters"] = action.filters
+            if action.solver:
+                step_record["solver"] = action.solver
             if action_url:
                 step_record["url"] = action_url
             if context_reference:
@@ -1105,9 +950,7 @@ class HarveyAgent:
         default_reference: Optional[str],
         available_urls: List[str],
         yaml_alias_map: Dict[str, str],
-        refresh_requested: bool,
-        transformed_urls: Set[str],
-    ) -> Tuple[Optional[str], bool, Optional[str], Optional[str]]:
+    ) -> Tuple[Optional[str], Optional[str], Optional[str]]:
         reference = self._determine_reference(
             action,
             default_reference,
@@ -1123,11 +966,7 @@ class HarveyAgent:
             else:
                 action_url = reference
 
-        effective_refresh = False
-        if refresh_requested and action_url:
-            effective_refresh = action_url not in transformed_urls
-
-        return action_url, effective_refresh, action_yaml, reference
+        return action_url, action_yaml, reference
 
     def _determine_reference(
         self,
@@ -1218,42 +1057,40 @@ class HarveyAgent:
         *,
         action: PlannedAction,
         url: Optional[str],
-        refresh: bool,
-        solver: str,
-        filters: Optional[Dict[str, Any]],
         objective: str,
         yaml_content: Optional[str],
     ) -> Dict[str, Any]:
         resolved_objective = action.objective or objective
+        effective_solver = action.solver or "minizinc"
         if action.name == "summary":
-            return await self._workflow.run_summary(url=url, yaml_content=yaml_content, refresh=refresh)
+            return await self._workflow.run_summary(url=url, yaml_content=yaml_content, refresh=False)
         if action.name == "iPricing":
             return await self._workflow.run_ipricing(
                 url=url,
                 yaml_content=yaml_content,
-                refresh=refresh,
+                refresh=False,
             )
         if action.name == "subscriptions":
             return await self._workflow.run_subscriptions(
                 url=url or "",
-                filters=filters,
-                solver=solver,
-                refresh=refresh,
+                filters=action.filters,
+                solver=effective_solver,
+                refresh=False,
                 yaml_content=yaml_content,
             )
         if action.name == "validate":
             return await self._workflow.run_validate(
                 url=url,
                 yaml_content=yaml_content,
-                solver=solver,
-                refresh=refresh,
+                solver=effective_solver,
+                refresh=False,
             )
         return await self._workflow.run_optimal(
             url=url or "",
-            filters=filters,
-            solver=solver,
+            filters=action.filters,
+            solver=effective_solver,
             objective=resolved_objective,
-            refresh=refresh,
+            refresh=False,
             yaml_content=yaml_content,
         )
 
@@ -1341,4 +1178,3 @@ class HarveyAgent:
             "error",
         ]
         return any(keyword in lowered for keyword in keywords)
-
