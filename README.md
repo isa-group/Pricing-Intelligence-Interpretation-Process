@@ -16,12 +16,12 @@ The project is composed of several microservices working in concert:
 
 ```mermaid
 graph TD
-    User[User / Frontend] --> Harvey[Harvey API (Agent)]
-    Harvey --> MCP[MCP Server]
-    MCP --> Analysis[Analysis API]
-    MCP --> Amint[Amint API]
-    Analysis --> CSP[CSP Service (Choco)]
-    Amint --> OpenAI[(OpenAI)]
+    User["User / Frontend"] --> Harvey["Harvey API (Agent)"]
+    Harvey --> MCP["MCP Server"]
+    MCP --> Analysis["Analysis API"]
+    MCP --> Amint["Amint API"]
+    Analysis --> CSP["CSP Service (Choco)"]
+    Amint --> OpenAI[("OpenAI")]
 ```
 
 ### Services
