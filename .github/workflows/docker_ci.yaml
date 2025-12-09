@@ -20,13 +20,13 @@ jobs:
             context: ./analysis_api
             dockerfile: ./analysis_api/Dockerfile
           - name: choco-pricing-analysis-engine
-            context: ./csp
+            context: .
             dockerfile: ./csp/Dockerfile
           - name: a-mint
-            context: ./src/amint
+            context: .
             dockerfile: ./src/Dockerfile
           - name: harvey
-            context: ./harvey_api
+            context: .
             dockerfile: ./harvey_api/Dockerfile
           - name: pi-mcp-server
             context: ./mcp_server
