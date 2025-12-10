@@ -30,4 +30,4 @@ RUN uv sync --frozen --no-install-project
 
 EXPOSE 8086
 
-CMD ["uvicorn", "src.harvey_api.app:app"]
+CMD ["uvicorn", "src.harvey_api.app:app", "--host", "0.0.0.0", "--port", "8086"]
