@@ -11,8 +11,8 @@
     "strict": true,
     "forceConsistentCasingInFileNames": true,
     "jsx": "react-jsx",
-    "types": ["react", "vite/client", "node"]
+    "types": ["react", "vite/client", "vitest/globals", "node"]
   },
-  "include": ["src"],
+  "include": ["src", "tests"],
   "references": []
 }
