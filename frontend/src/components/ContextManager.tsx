@@ -44,6 +44,7 @@ function ContextManager({
         label: normalized,
         value: normalized,
         origin: "user",
+        uploaded: true
       });
       setUrlInput("");
       setError(null);
@@ -104,6 +105,7 @@ function ContextManager({
                     label: url,
                     value: url,
                     origin: "detected",
+                    uploaded: true
                   })
                 }
               >

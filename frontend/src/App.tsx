@@ -25,18 +25,7 @@ function App() {
   const [question, setQuestion] = useState("");
   const [contextItems, setContextItems] = useState<PricingContextItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [theme, setTheme] = useState<ThemeType>(() => {
-    if (typeof window === "undefined") {
-      return "light";
-    }
-    const stored = window.localStorage.getItem("pricing-theme");
-    if (stored === "light" || stored === "dark") {
-      return stored;
-    }
-    return window.matchMedia("(prefers-color-scheme: dark)").matches
-      ? "dark"
-      : "light";
-  });
+  const [theme, setTheme] = useState<ThemeType>("dark");
 
   const detectedPricingUrls = useMemo(
     () => extractPricingUrls(question),

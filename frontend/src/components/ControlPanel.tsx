@@ -72,7 +72,6 @@ function ControlPanel({
             onChange={(event: ChangeEvent<HTMLInputElement>) => {
               const files = event.target.files ?? null;
               onFileSelect(files);
-              event.target.value = "";
             }}
           />
           <span className="help-text">
