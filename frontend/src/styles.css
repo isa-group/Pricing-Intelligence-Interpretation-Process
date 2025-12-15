@@ -1542,6 +1542,8 @@ input.context-add-url:focus {
 }
 
 .pricing-add-btn {
+  width: 5rem;
+  height: 2rem;
   border: none;
   background: var(--accent-gradient);
   color: white;
@@ -1568,14 +1570,7 @@ input.context-add-url:focus {
   box-shadow: none;
 }
 
-/* Icon-sized variant for tighter rows */
-.pricing-add-btn.icon {
-  padding: 0.18rem;
-  width: 2rem;
-  height: 2rem;
-  display: inline-grid;
-  place-items: center;
-}
+
 
 @media (max-width: 640px) {
   .pricing-item {

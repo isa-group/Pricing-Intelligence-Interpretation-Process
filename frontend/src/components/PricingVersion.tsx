@@ -1,3 +1,4 @@
+import { usePricingContext } from "../hooks/usePricingContext";
 import { usePricingVersions } from "../hooks/useVersion";
 import { fetchPricingYaml } from "../sphere";
 import { SphereContextItemInput } from "../types";
@@ -21,6 +22,13 @@ function PricingVersions({
     name,
     collectionName
   );
+  const pricingContextItems = usePricingContext();
+
+  const isVersionIncludedInContext = (yamlPath: string) =>
+    pricingContextItems.filter(
+      (item) =>
+        item.origin && item.origin === "sphere" && item.yamlPath === yamlPath
+    ).length > 0;
 
   const totalVersions = versions?.versions.length;
 
@@ -32,10 +40,7 @@ function PricingVersions({
     return <PricingVersionLoader />;
   }
 
-  const calculateLabel = (
-    name: string,
-    collectionName?: string | null
-  ) =>
+  const calculateLabel = (name: string, collectionName?: string | null) =>
     `${collectionName ? collectionName + "/" : ""}${name}`;
 
   const calculateTotalVersionLabel = () => {
@@ -71,14 +76,15 @@ function PricingVersions({
       <ul className="pricing-versions">
         {versions?.versions.map((item) => (
           <li className="pricing-version" key={item.id}>
-            <a className="version-label" href={item.yaml}>
+            <a target="_blank" className="version-label" href={item.yaml}>
               {item.version}
             </a>
             <button
-              className="pricing-add-btn icon"
+              disabled={isVersionIncludedInContext(item.yaml)}
+              className="pricing-add-btn"
               onClick={() => handleAddSpherePricing(item.yaml, item.version)}
             >
-              Add
+              {isVersionIncludedInContext(item.yaml) ? "Added" : "Add"}
             </button>
           </li>
         ))}

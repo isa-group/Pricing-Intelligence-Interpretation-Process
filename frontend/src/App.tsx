@@ -16,6 +16,7 @@ import {
   extractPricingUrls,
   uploadYamlPricing,
 } from "./utils";
+import { PricingContext } from "./context/pricingContext";
 
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8086";
@@ -328,65 +329,67 @@ function App() {
   };
 
   return (
-    <ThemeContext.Provider value={theme}>
-      <div className="app">
-        <header className="header-bar">
-          <div>
-            <h1>H.A.R.V.E.Y. Pricing Assistant</h1>
-            <p>
-              Ask about optimal subscriptions and pricing insights using the
-              Holistic Analysis and Regulation Virtual Expert for You
-              (H.A.R.V.E.Y.) agent.
-            </p>
-          </div>
-          <div className="header-actions">
-            <button
-              type="button"
-              className="session-reset"
-              onClick={handleNewConversation}
-              disabled={isLoading}
-            >
-              New conversation
-            </button>
-            <button
-              type="button"
-              className="theme-toggle"
-              onClick={toggleTheme}
-              aria-label="Toggle color theme"
-            >
-              {theme === "dark"
-                ? "Switch to light mode"
-                : "Switch to dark mode"}
-            </button>
-          </div>
-        </header>
-        <main>
-          <section className="chat-panel">
-            <ChatTranscript
-              messages={messages}
-              isLoading={isLoading}
-              promptPresets={PROMPT_PRESETS}
-              onPresetSelect={handlePromptSelect}
-            />
-          </section>
-          <section className="control-panel">
-            <ControlPanel
-              question={question}
-              detectedPricingUrls={detectedPricingUrls}
-              contextItems={contextItems}
-              isSubmitting={isLoading}
-              isSubmitDisabled={isSubmitDisabled}
-              onQuestionChange={setQuestion}
-              onSubmit={handleSubmit}
-              onFileSelect={handleFilesSelected}
-              onContextAdd={addContextItem}
-              onContextRemove={removeContextItem}
-              onContextClear={clearContext}
-            />
-          </section>
-        </main>
-      </div>
-    </ThemeContext.Provider>
+    <PricingContext.Provider value={contextItems}>
+      <ThemeContext.Provider value={theme}>
+        <div className="app">
+          <header className="header-bar">
+            <div>
+              <h1>H.A.R.V.E.Y. Pricing Assistant</h1>
+              <p>
+                Ask about optimal subscriptions and pricing insights using the
+                Holistic Analysis and Regulation Virtual Expert for You
+                (H.A.R.V.E.Y.) agent.
+              </p>
+            </div>
+            <div className="header-actions">
+              <button
+                type="button"
+                className="session-reset"
+                onClick={handleNewConversation}
+                disabled={isLoading}
+              >
+                New conversation
+              </button>
+              <button
+                type="button"
+                className="theme-toggle"
+                onClick={toggleTheme}
+                aria-label="Toggle color theme"
+              >
+                {theme === "dark"
+                  ? "Switch to light mode"
+                  : "Switch to dark mode"}
+              </button>
+            </div>
+          </header>
+          <main>
+            <section className="chat-panel">
+              <ChatTranscript
+                messages={messages}
+                isLoading={isLoading}
+                promptPresets={PROMPT_PRESETS}
+                onPresetSelect={handlePromptSelect}
+              />
+            </section>
+            <section className="control-panel">
+              <ControlPanel
+                question={question}
+                detectedPricingUrls={detectedPricingUrls}
+                contextItems={contextItems}
+                isSubmitting={isLoading}
+                isSubmitDisabled={isSubmitDisabled}
+                onQuestionChange={setQuestion}
+                onSubmit={handleSubmit}
+                onFileSelect={handleFilesSelected}
+                onContextAdd={addContextItem}
+                onContextRemove={removeContextItem}
+                onContextClear={clearContext}
+              />
+            </section>
+          </main>
+        </div>
+      </ThemeContext.Provider>
+    </PricingContext.Provider>
   );
 }
 
