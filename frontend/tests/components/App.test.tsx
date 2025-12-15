@@ -13,7 +13,26 @@ describe("Pricing Context Suite", () => {
     const container = document.querySelector(".context-manager") as HTMLElement;
 
     await within(container).findByText("https://example.org/testing")
+    });
+
+  it("Given duplicated URLs should appear once in context", async () => {
+    render(<App />);
+
+    const urlInput = "https://example.org/testing"
+    const inputUrl = screen.getByPlaceholderText("https://example.com/pricing")
+    const addUrlButton = screen.getByRole("button", {name: "Add URL"})
+
+    fireEvent.change(inputUrl, {target: {value: urlInput}})
+    await user.click(addUrlButton)
+    fireEvent.change(inputUrl, {target: {value: urlInput}})
+    await user.click(addUrlButton)
+
+    const contextList = document.querySelector(".context-list") as HTMLElement;
+
+    const urlList = await within(contextList).findAllByText(/https?:\/\//i)
+    expect(urlList).toHaveLength(1)
   });
+
   it("Given YAML files should appear in context", async () => {
     render(<App />);
     const files = [

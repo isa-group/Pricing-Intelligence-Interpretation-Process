@@ -71,52 +71,32 @@ function App() {
     }
   }, [theme, contextItems]);
 
+  const createPricingContextItems = (
+    contextInputItems: ContextInputType[]
+  ): PricingContextItem[] =>
+    contextInputItems
+      .map((item) => ({
+        ...item,
+        value: item.value.trim(),
+        id: crypto.randomUUID(),
+      }))
+      .filter(
+        (item) =>
+          !contextItems.some(
+            (stateItem) =>
+              stateItem.kind === item.kind && stateItem.value === item.value
+          )
+      );
+
   const addContextItems = (inputs: ContextInputType[]) => {
-    setContextItems((previous) => {
-      if (inputs.length === 0) {
-        return previous;
-      }
+    if (inputs.length === 0) {
+      return;
+    }
 
-      const next = [...previous];
-      inputs.forEach((input) => {
-        const trimmedValue = input.value.trim();
-        if (!trimmedValue) {
-          return;
-        }
+    const newPricingContextItems: PricingContextItem[] =
+      createPricingContextItems(inputs);
 
-        const exists = next.some(
-          (item) => item.kind === input.kind && item.value === trimmedValue
-        );
-        if (exists) {
-          return;
-        }
-
-        if (input.origin && input.origin === "sphere") {
-          next.push({
-            id: crypto.randomUUID(),
-            kind: "yaml",
-            value: input.value,
-            label: input.label,
-            origin: "sphere",
-            yamlPath: input.yamlPath,
-            owner: input.owner,
-            pricingName: input.pricingName,
-            version: input.version,
-            collection: input.collection,
-          });
-        } else {
-          next.push({
-            id: crypto.randomUUID(),
-            kind: input.kind,
-            label: input.label?.trim() || trimmedValue,
-            value: trimmedValue,
-            origin: input.origin ?? "user",
-            uploaded: false,
-          });
-        }
-      });
-      return next;
-    });
+    setContextItems((previous) => [...previous, ...newPricingContextItems]);
   };
 
   const addContextItem = (input: ContextInputType) => {
