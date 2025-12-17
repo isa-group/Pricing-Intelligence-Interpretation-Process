@@ -1,12 +1,15 @@
 from __future__ import annotations
 
+import asyncio
 import os
+import json
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from fastapi import FastAPI, UploadFile, HTTPException
+from fastapi import status, FastAPI, Request, Response, Depends, UploadFile, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from sse_starlette import EventSourceResponse, ServerSentEvent, JSONServerSentEvent
 from pydantic import BaseModel, HttpUrl
 
 from .clients import MCPClientError
@@ -88,9 +91,51 @@ async def chat(request: ChatRequest) -> ChatResponse:
         result=response_payload["result"],
     )
 
-@app.post('/upload')
+
+
+async def generate_events():
+    i = 0
+    while True:
+        yield {"data": f"Event {i}"}
+        i+=1
+        await asyncio.sleep(2)
+
+
+class Stream:
+    def __init__(self) -> None:
+        self._queue: Optional[asyncio.Queue[ServerSentEvent]] = None
+
+    @property
+    def queue(self) -> asyncio.Queue[ServerSentEvent]:
+        if self._queue is None:
+            self._queue = asyncio.Queue[ServerSentEvent]()
+        return self._queue
+
+    def __aiter__(self) -> "Stream":
+        return self
+
+    async def __anext__(self) -> ServerSentEvent:
+        return await self.queue.get()
+
+    async def asend(self, value: ServerSentEvent) -> None:
+        await self.queue.put(value)
+
+_stream = Stream()
+
+@app.get('/events')
+async def server_sent_evennts(stream: Stream = Depends(lambda: _stream)) -> EventSourceResponse:
+    return EventSourceResponse(stream)
+
+class NotificationUrlTransform(BaseModel):
+    pricing_url: str
+    yaml_content: str
+
+@app.post("/transform", status_code=status.HTTP_201_CREATED)
+async def url_done_update(notification: NotificationUrlTransform, stream: Stream = Depends(lambda: _stream)) -> None:
+    await stream.asend(JSONServerSentEvent(event="url_transform", data={"pricing_url": notification.pricing_url, "yaml_content": notification.yaml_content}))
+
+@app.post('/upload', status_code=status.HTTP_201_CREATED)
 async def upload_and_save_pricing(file: UploadFile):
-    print(file.content_type)
     if not (file.content_type == "application/yaml" or file.content_type == "application/x-yaml"):
         raise HTTPException(status_code=400, detail=f"Invalid Content-Type: {file.content_type}. Only application/yaml is supported")
     contents = await file.read()

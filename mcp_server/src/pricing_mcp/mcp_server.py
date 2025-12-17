@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+from urllib.parse import urlparse, quote
 
+import httpx
 from mcp.server.fastmcp import FastMCP  # type: ignore[import]
 
 from .container import container
@@ -11,6 +14,10 @@ from .logging import get_logger
 settings = container.settings
 mcp = FastMCP(settings.mcp_server_name)
 logger = get_logger(__name__)
+
+# CONFIG
+
+HARVEY_URL = os.getenv("HARVEY_BASE_URL")
 
 # Event names for structured logs
 TOOL_INVOKED = "mcp.tool.invoked"
@@ -199,10 +206,33 @@ async def ipricing(
         yaml_content=pricing_yaml,
         refresh=refresh,
     )
-    pricing_yaml_len = len(result.get("pricing_yaml", "")) if isinstance(result, dict) else None
+    yaml_content = result.get("pricing_yaml", "")
+    upload_transformed_pricing(pricing_url, yaml_content)
+    notify_pricing_upload(pricing_url, yaml_content)
+    pricing_yaml_len = len() if isinstance(result, dict) else None
     logger.info(TOOL_COMPLETED, tool="iPricing", pricing_yaml_length=pricing_yaml_len)
     return result
 
+def upload_transformed_pricing(pricing_url: str, yaml_content: str):
+    try:
+        files = {"file": (f"{quote(pricing_url)}", yaml_content, "application/yaml" )}
+        response = httpx.post(f"{HARVEY_URL}/upload", files=files)
+        response.raise_for_status()
+        logger.info(f"Upload {pricing_url} completed")
+    except httpx.RequestError as exc:
+        logger.error(f"An error occurred while requesting {exc.request.url!r}.")
+    except httpx.HTTPStatusError as exc:
+        logger.error(f"Upload failed with status {exc.response.status_code} while requesting {exc.request.url!r}.")
+
+def notify_pricing_upload(pricing_url: str, yaml_content: str):
+    try:
+        response = httpx.post(f"{HARVEY_URL}/events", json={"pricing_url": pricing_url, "yaml_content": yaml_content})
+        response.raise_for_status()
+        logger.info(f"Notifying harvey transformation of {pricing_url} was completed")
+    except httpx.RequestError as exc:
+        logger.error(f"An error occurred while requesting {exc.request.url!r}.")
+    except httpx.HTTPStatusError as exc:
+        logger.error(f"Upload failed with status {exc.response.status_code} while requesting {exc.request.url!r}.")
 
 @mcp.resource("resource://pricing/specification")
 async def pricing2yaml_specification() -> str:

@@ -55,6 +55,10 @@ function ContextManagerItem({ item, onRemove }: ContextManagerItemProps) {
     `${SPHERE_EDITOR}?pricingUrl=${url}`;
 
   const formatEditorLink = () => {
+    if (item.kind === "url") {
+      return formatSphereEditorLink(`${API_BASE_URL}/static/${encodeURIComponent(item.url)}`)
+    }
+
     switch(item.origin) {
       case "preset":
       case "user":
@@ -73,6 +77,8 @@ function ContextManagerItem({ item, onRemove }: ContextManagerItemProps) {
         <span className="context-item-meta">
           {computeContextItemMetadata(item)}
         </span>
+        {item.kind === "url" && item.transform === "not-started" && <p>URL waiting to be processed...</p>}
+        {item.kind === "url" && item.transform === "pending" && <p>URL is being transform into an iPricing...</p>}
       </div>
       <button
         type="button"
@@ -86,6 +92,15 @@ function ContextManagerItem({ item, onRemove }: ContextManagerItemProps) {
           className="context-item-editor-link"
           target="_blank"
           href={formatEditorLink()}
+        >
+          <OpenInNewIcon width={24} height={24} />
+        </a>
+      )}
+      {item.kind === "url" && item.transform === "done" && (
+        <a
+          className="context-item-editor-link"
+          target="_blank"
+          href={formatSphereEditorLink(item.url)}
         >
           <OpenInNewIcon width={24} height={24} />
         </a>

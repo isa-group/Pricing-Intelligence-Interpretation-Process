@@ -73,6 +73,7 @@ services:
     environment:
       - AMINT_BASE_URL=http://a-mint-api:8000
       - ANALYSIS_BASE_URL=http://analysis-api:3000
+      - HARVEY_BASE_URL=http://harvey-api:8086
       - CACHE_BACKEND=memory
       - LOG_LEVEL=INFO
       - HTTP_HOST=0.0.0.0

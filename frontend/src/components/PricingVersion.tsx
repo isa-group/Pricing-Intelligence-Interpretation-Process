@@ -51,18 +51,19 @@ function PricingVersions({
     return res + "s";
   };
 
-  const handleAddSpherePricing = async (url: string, version: string) => {
-    const yamlFile = await fetchPricingYaml(url);
+  const handleAddSpherePricing = async (yamlUrl: string, version: string) => {
+    const yamlFile = await fetchPricingYaml(yamlUrl);
     onContextAdd({
       kind: "yaml",
       label: calculateLabel(name, collectionName),
       value: yamlFile,
       origin: "sphere",
       owner: owner,
-      yamlPath: url,
+      yamlPath: yamlUrl,
       pricingName: name,
       version: version,
       collection: collectionName ?? null,
+      uploaded: true
     });
   };
 

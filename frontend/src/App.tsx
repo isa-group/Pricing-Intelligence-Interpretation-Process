@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 
 import ChatTranscript from "./components/ChatTranscript";
 import ControlPanel from "./components/ControlPanel";
@@ -7,6 +7,7 @@ import type {
   PricingContextItem,
   PromptPreset,
   ContextInputType,
+  NotificationUrlEvent,
 } from "./types";
 import { PROMPT_PRESETS } from "./prompts";
 import { ThemeContext, ThemeType } from "./context/themeContext";
@@ -27,6 +28,24 @@ function App() {
   const [contextItems, setContextItems] = useState<PricingContextItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [theme, setTheme] = useState<ThemeType>("dark");
+
+  useEffect(() => {
+    const eventSource = new EventSource(`${API_BASE_URL}/events`);
+
+    eventSource.onopen = () => console.log("Connection established");
+
+    eventSource.addEventListener("url_transform", (event: MessageEvent) => {
+      const notification: NotificationUrlEvent = JSON.parse(event.data);
+      setContextItems((previous) =>
+        previous.map((item) =>
+          item.kind === "url" && item.url === notification.pricing_url
+            ? { ...item, transform: 'done', value: notification.yaml_content }
+            : item
+        )
+      );
+    });
+    return () => eventSource.close()
+  }, []);
 
   const detectedPricingUrls = useMemo(
     () => extractPricingUrls(question),
@@ -192,7 +211,7 @@ function App() {
           label: entry.label,
           value: entry.value,
           uploaded: false,
-          origin: entry.origin ?? "preset",
+          origin: "preset",
         }))
       );
     }
@@ -231,10 +250,12 @@ function App() {
       addContextItems(
         newlyDetected.map((url) => ({
           kind: "url",
+          url: url,
           label: url,
           value: url,
           origin: "detected",
           uploaded: false,
+          transform: 'pending'
         }))
       );
     }
@@ -263,7 +284,7 @@ function App() {
     };
     setMessages((prev) => [...prev, userMessage]);
     setIsLoading(true);
-
+    setContextItems((prev) => prev.map(item => item.kind === "url" ? {...item, transform: 'pending'} : item))
     try {
       const response = await fetch(`${API_BASE_URL}/chat`, {
         method: "POST",
@@ -307,10 +328,12 @@ function App() {
         addContextItems(
           agentDiscoveredUrls.map((url) => ({
             kind: "url",
+            url: url,
             label: url,
             value: url,
             origin: "agent",
             uploaded: false,
+            transform: 'not-started'
           }))
         );
       }

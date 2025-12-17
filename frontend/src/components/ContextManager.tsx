@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 
-import type { ContextInputType, PricingContextItem } from "../types";
+import type { ContextInputType, PricingContextItem, UrlContextItemInput } from "../types";
 import ContextManagerItem from "./ContextManagerItem";
 
 interface Props {
@@ -39,13 +39,15 @@ function ContextManager({
 
     try {
       const normalized = new URL(trimmed).href;
-      onAdd({
+      const urlItem: UrlContextItemInput = {
         kind: "url",
+        url: normalized,
         label: normalized,
         value: normalized,
         origin: "user",
-        uploaded: true
-      });
+        transform: 'not-started'
+      }
+      onAdd(urlItem);
       setUrlInput("");
       setError(null);
     } catch {
@@ -102,10 +104,11 @@ function ContextManager({
                 onClick={() =>
                   onAdd({
                     kind: "url",
+                    url: url,
                     label: url,
                     value: url,
+                    transform: 'not-started',
                     origin: "detected",
-                    uploaded: true
                   })
                 }
               >

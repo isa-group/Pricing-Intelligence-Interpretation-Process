@@ -14,7 +14,8 @@ export const PROMPT_PRESETS: PromptPreset[] = [
         kind: 'yaml',
         label: 'overleaf-2023.yaml',
         value: overleaf2023,
-        origin: 'preset'
+        origin: 'preset',
+        uploaded: false
       }
     ]
   },
@@ -29,7 +30,8 @@ export const PROMPT_PRESETS: PromptPreset[] = [
         kind: 'yaml',
         label: 'overleaf-2023.yaml',
         value: overleaf2023,
-        origin: 'preset'
+        origin: 'preset',
+        uploaded: false
       }
     ]
   },
@@ -44,7 +46,8 @@ export const PROMPT_PRESETS: PromptPreset[] = [
         kind: 'yaml',
         label: 'two-plans-equal.yaml',
         value: twoPlansEqual,
-        origin: 'preset'
+        origin: 'preset',
+        uploaded: false
       }
     ]
   }
