@@ -209,7 +209,7 @@ async def ipricing(
     yaml_content = result.get("pricing_yaml", "")
     upload_transformed_pricing(pricing_url, yaml_content)
     notify_pricing_upload(pricing_url, yaml_content)
-    pricing_yaml_len = len() if isinstance(result, dict) else None
+    pricing_yaml_len = len(yaml_content) if isinstance(result, dict) else None
     logger.info(TOOL_COMPLETED, tool="iPricing", pricing_yaml_length=pricing_yaml_len)
     return result
 
