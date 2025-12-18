@@ -41,11 +41,11 @@ task_manager = TaskManager()
 
 class TransformRequest(BaseModel):
     url: HttpUrl
-    model: Optional[str] = "gemini-2.5-flash"
+    model: Optional[str] = "gpt-5.2"
     max_tries: Optional[int] = 50  # New parameter for FixYaml
-    base_url: Optional[str] = "https://generativelanguage.googleapis.com/v1beta/openai/"  # Custom endpoint URL for OpenAI-compatible APIs
+    base_url: Optional[str] = "https://api.openai.com/v1"  # Custom endpoint URL for OpenAI-compatible APIs
     temperature: Optional[float] = 0.7  # Default temperature for model responses
-    better_model: Optional[str] = "gemini-2.5-pro"  # Model for better quality responses
+    better_model: Optional[str] = "gpt-5.2"  # Model for better quality responses
 
 class TransformResponse(BaseModel):
     task_id: str
@@ -371,10 +371,10 @@ def background_fix(task_id: str, file_path: str, url: Optional[str], max_tries: 
     async def _inner():
         try:
             ai_config = AIConfig(
-                model="gemini-2.5-flash",
+                model="gpt-5.2",
                 temperature=0.0,
-                base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
-                better_model="gemini-2.5-pro"
+                base_url="https://api.openai.com/v1",
+                better_model="gpt-5.2"
             )
             ai_client = OpenAIAPI(ai_config)
             FixYaml(

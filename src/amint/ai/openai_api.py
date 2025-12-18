@@ -197,7 +197,7 @@ class OpenAIAPI(AIClient):
         request_params = {
             "model": model,
             "messages": messages,
-            "temperature": generation_config.get("temperature", self.config.temperature) if generation_config else self.config.temperature,
+            # "temperature": generation_config.get("temperature", self.config.temperature) if generation_config else self.config.temperature, # Simplified as OpenAI's models do not let us change temperature if reasoning_effort is set to "high"
             "reasoning_effort": "high",
             # "max_tokens": 65536
         }
@@ -212,7 +212,8 @@ class OpenAIAPI(AIClient):
             
             # Check for problematic finish reasons
             finish_reason = response.choices[0].finish_reason
-            possible_temperatures = [0.7, 0.6, 0.8, 0.5, 0.9, 1.0, 0.0]
+            # possible_temperatures = [0.7, 0.6, 0.8, 0.5, 0.9, 1.0, 0.0] # Simplified as OpenAI's models do not let us change temperature if reasoning_effort is set to "high"
+            possible_temperatures = [0.7]  # Simplified as OpenAI's models do not let us change temperature if reasoning_effort is set to "high"
             finish_attempt = 0
             if self._is_finish_reason_error(finish_reason) or not response_text:
                 while finish_attempt < len(possible_temperatures):
@@ -220,7 +221,7 @@ class OpenAIAPI(AIClient):
                     request_params = {
                         "model": model,
                         "messages": [{"role": "user", "content": prompt}],
-                        "temperature": possible_temperatures[finish_attempt],
+                        # "temperature": possible_temperatures[finish_attempt], # Simplified as OpenAI's models do not let us change temperature if reasoning_effort is set to "high"
                         "reasoning_effort": "high",
                         # "max_tokens": 65536
                     }
