@@ -70,7 +70,6 @@ services:
     environment:
       - AMINT_BASE_URL=http://a-mint-api:8000
       - ANALYSIS_BASE_URL=http://analysis-api:3000
-      - HARVEY_BASE_URL=http://harvey-api:8086
       - CACHE_BACKEND=memory
       - LOG_LEVEL=INFO
       - HTTP_HOST=0.0.0.0
@@ -91,6 +90,7 @@ services:
       - UVICORN_HOST=0.0.0.0
       - UVICORN_PORT=8086
       - LOG_LEVEL=INFO
+      - HARVEY_BASE_URL=http://harvey-api:8086
       - OPENAI_API_KEY=${HARVEY_API_KEY}
       - OPENAI_MODEL=gemini-2.5-flash
       - OPENAI_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai/
