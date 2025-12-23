@@ -40,12 +40,10 @@ class Settings(BaseSettings):
     openai_api_key: Optional[str] = Field(
         default=None,
         description="OpenAI API key",
-        env="OPENAI_API_KEY",
     )
     openai_model: str = Field(
         default="gpt-5",
         description="OpenAI model to use for H.A.R.V.E.Y. assistant",
-        env="OPENAI_MODEL",
     )
 
 
