@@ -2,6 +2,8 @@
 FROM python:3.11-slim
 
 ENV PYTHONUNBUFFERED=1
+ARG HARVEY_STATIC_DIR
+RUN mkdir -p $HARVEY_STATIC_DIR
 
 WORKDIR /app
 
@@ -13,6 +15,7 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 ENV PATH="/root/.local/bin:${PATH}"
+ENV UV_SYSTEM_PYTHON=true
 
 # Install Pricing MCP server into the same environment
 COPY mcp_server/pyproject.toml ./mcp_server/pyproject.toml
@@ -22,13 +25,10 @@ COPY mcp_server/.env.example ./mcp_server/.env
 RUN uv pip install --system ./mcp_server
 
 # Copy H.A.R.V.E.Y. API sources
-COPY harvey_api/pyproject.toml ./pyproject.toml
-COPY harvey_api/README.md ./README.md
+COPY harvey_api/pyproject.toml harvey_api/uv.lock .
 COPY harvey_api/src ./src
-
-# Install H.A.R.V.E.Y. API
-RUN uv pip install --system .
+RUN uv sync --frozen --no-install-project
 
 EXPOSE 8086
 
-CMD ["uvicorn", "harvey_api.app:app", "--host", "0.0.0.0", "--port", "8086"]
+CMD ["uvicorn", "src.harvey_api.app:app", "--host", "0.0.0.0", "--port", "8086"]

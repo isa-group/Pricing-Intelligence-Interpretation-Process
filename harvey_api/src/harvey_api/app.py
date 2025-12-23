@@ -1,13 +1,17 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+import asyncio
+from typing import Annotated, Any, Dict, List, Optional
 
-from fastapi import FastAPI, HTTPException
+from fastapi import status, FastAPI, Request, Response, Depends, UploadFile, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from sse_starlette import EventSourceResponse, ServerSentEvent, JSONServerSentEvent
 from pydantic import BaseModel, HttpUrl
 
 from .clients import MCPClientError
 from .container import container, lifespan
+from .file_manager import FileManager
 
 app = FastAPI(title="H.A.R.V.E.Y. Pricing Assistant API", lifespan=lifespan)
 app.add_middleware(
@@ -17,6 +21,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.mount("/static", StaticFiles(directory=container.settings.harvey_static_dir), name="static")
 
 class ChatRequest(BaseModel):
     question: str
@@ -81,3 +86,60 @@ async def chat(request: ChatRequest) -> ChatResponse:
         plan=response_payload["plan"],
         result=response_payload["result"],
     )
+
+class Stream:
+    def __init__(self) -> None:
+        self._queue: Optional[asyncio.Queue[ServerSentEvent]] = None
+
+    @property
+    def queue(self) -> asyncio.Queue[ServerSentEvent]:
+        if self._queue is None:
+            self._queue = asyncio.Queue[ServerSentEvent]()
+        return self._queue
+
+    def __aiter__(self) -> "Stream":
+        return self
+
+    async def __anext__(self) -> ServerSentEvent:
+        return await self.queue.get()
+
+    async def asend(self, value: ServerSentEvent) -> None:
+        await self.queue.put(value)
+
+_stream = Stream()
+
+@app.get('/events')
+async def server_sent_evennts(stream: Stream = Depends(lambda: _stream)) -> EventSourceResponse:
+    return EventSourceResponse(stream)
+
+class NotificationUrlTransform(BaseModel):
+    pricing_url: str
+    yaml_content: str
+
+def get_file_manager():
+    return FileManager(container.settings.harvey_static_dir)
+
+@app.post("/transform", status_code=status.HTTP_201_CREATED)
+async def url_done_update(notification: NotificationUrlTransform, stream: Stream = Depends(lambda: _stream)) -> None:
+    await stream.asend(JSONServerSentEvent(event="url_transform", data={"pricing_url": notification.pricing_url, "yaml_content": notification.yaml_content}))
+
+file_mangager_dependency = Annotated[FileManager, Depends(get_file_manager)]
+
+def is_yaml_file(content_type: str) -> bool:
+    return content_type == "application/yaml" or content_type == "application/x-yaml"
+
+@app.post('/upload', status_code=status.HTTP_201_CREATED)
+async def upload_and_save_pricing(file: UploadFile, file_manager_service: file_mangager_dependency):
+    if not is_yaml_file(file.content_type):
+        raise HTTPException(status_code=400, detail=f"Invalid Content-Type: {file.content_type}. Only application/yaml is supported")
+    contents = await file.read()
+    file_manager_service.write_file(file.filename, contents)
+
+    return { "filename": file.filename, "relative_path": f"/static/{file.filename}" }
+
+@app.delete('/pricing/{filename}', status_code=204)
+async def delete_pricing(filename: str, file_manager_service: file_mangager_dependency):
+    try:
+        file_manager_service.delete_file(filename)
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail=f"File with name {filename} doesn't exist")

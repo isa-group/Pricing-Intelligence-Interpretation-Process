@@ -1,4 +1,4 @@
-export type ChatRole = 'user' | 'assistant';
+export type ChatRole = "user" | "assistant";
 
 export interface ChatMessage {
   id: string;
@@ -11,23 +11,52 @@ export interface ChatMessage {
   };
 }
 
-export interface PricingContextItem {
+export type Kinds = "url" | "yaml";
+export type Origins = "user" | "detected" | "preset" | "agent";
+
+export type PricingContextItem = YamlContextItem | UrlContextItem;
+
+export type YamlContextItem = YamlContextItemInput & {
   id: string;
-  kind: 'url' | 'yaml';
-  label: string;
-  value: string;
-  origin: 'user' | 'detected' | 'preset' | 'agent';
+};
+
+export interface UrlContextItem extends UrlContextItemInput {
+  id: string;
 }
 
-export interface ContextItemInput {
-  kind: PricingContextItem['kind'];
+export type ContextInputType = YamlContextItemInput | UrlContextItemInput;
+export type YamlContextItemInput =
+  | BaseYamlContextItemInput
+  | SphereContextItemInput;
+
+export interface BaseYamlContextItemInput {
+  kind: "yaml";
+  uploaded: boolean;
   label: string;
   value: string;
-  origin?: PricingContextItem['origin'];
+  origin?: Origins;
 }
 
-export interface PromptPresetContext extends Omit<ContextItemInput, 'origin'> {
-  origin?: PricingContextItem['origin'];
+export interface UrlContextItemInput {
+  kind: "url";
+  label: string;
+  url: string;
+  value: string;
+  origin?: Origins;
+  transform: "not-started" | "pending" | "done";
+}
+
+export interface SphereContextItemInput {
+  kind: "yaml";
+  uploaded: boolean;
+  label: string;
+  value: string;
+  origin: "sphere";
+  owner: string;
+  collection: string | null;
+  pricingName: string;
+  version: string;
+  yamlPath: string;
 }
 
 export interface PromptPreset {
@@ -35,5 +64,10 @@ export interface PromptPreset {
   label: string;
   description: string;
   question: string;
-  context: PromptPresetContext[];
+  context: YamlContextItemInput[];
+}
+
+export interface NotificationUrlEvent {
+  pricing_url: string;
+  yaml_content: string;
 }
