@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from functools import lru_cache
+from pathlib import Path
 from typing import Literal, Optional
 
 from pydantic import AnyHttpUrl, Field
@@ -16,6 +17,7 @@ class Settings(BaseSettings):
     app_name: str = Field(default="harvey-pricing-assistant")
     environment: Literal["local", "development", "staging", "production"] = "local"
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "INFO"
+    harvey_static_dir: Path = Field(description="Directory that will contain yaml file assets")
 
     # MCP gateway
     mcp_server_module: str = Field(

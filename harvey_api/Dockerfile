@@ -2,6 +2,8 @@
 FROM python:3.11-slim
 
 ENV PYTHONUNBUFFERED=1
+ARG HARVEY_STATIC_DIR
+RUN mkdir -p $HARVEY_STATIC_DIR
 
 WORKDIR /app
 
@@ -23,7 +25,6 @@ COPY mcp_server/.env.example ./mcp_server/.env
 RUN uv pip install --system ./mcp_server
 
 # Copy H.A.R.V.E.Y. API sources
-RUN mkdir -p src/harvey_api/static
 COPY harvey_api/pyproject.toml harvey_api/uv.lock .
 COPY harvey_api/src ./src
 RUN uv sync --frozen --no-install-project
