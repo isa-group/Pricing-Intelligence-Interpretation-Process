@@ -15,10 +15,6 @@ settings = container.settings
 mcp = FastMCP(settings.mcp_server_name)
 logger = get_logger(__name__)
 
-# CONFIG
-
-HARVEY_URL = os.getenv("HARVEY_BASE_URL")
-
 # Event names for structured logs
 TOOL_INVOKED = "mcp.tool.invoked"
 TOOL_COMPLETED = "mcp.tool.completed"
@@ -216,7 +212,7 @@ async def ipricing(
 def upload_transformed_pricing(pricing_url: str, yaml_content: str):
     try:
         files = {"file": (f"{quote(pricing_url)}", yaml_content, "application/yaml" )}
-        response = httpx.post(f"{HARVEY_URL}/upload", files=files)
+        response = httpx.post(f"{settings.harvey_base_url}/upload", files=files)
         response.raise_for_status()
         logger.info(f"Upload {pricing_url} completed")
     except httpx.RequestError as exc:
@@ -226,7 +222,7 @@ def upload_transformed_pricing(pricing_url: str, yaml_content: str):
 
 def notify_pricing_upload(pricing_url: str, yaml_content: str):
     try:
-        response = httpx.post(f"{HARVEY_URL}/events", json={"pricing_url": pricing_url, "yaml_content": yaml_content})
+        response = httpx.post(f"{settings.harvey_base_url}/events", json={"pricing_url": pricing_url, "yaml_content": yaml_content})
         response.raise_for_status()
         logger.info(f"Notifying harvey transformation of {pricing_url} was completed")
     except httpx.RequestError as exc:
