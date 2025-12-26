@@ -8,17 +8,21 @@ import type {
   PromptPreset,
   ContextInputType,
   NotificationUrlEvent,
+  ChatRequest,
 } from "./types";
 import { PROMPT_PRESETS } from "./prompts";
 import { ThemeContext, ThemeType } from "./context/themeContext";
 import {
   chatWithAgent,
+  createContextBodyPayload,
   deleteYamlPricing,
   extractHttpReferences,
   extractPricingUrls,
   uploadYamlPricing,
+  diffPricingContextWithQuestionUrls,
 } from "./utils";
 import { PricingContext } from "./context/pricingContext";
+import { url } from "inspector";
 
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8086";
@@ -40,12 +44,12 @@ function App() {
       setContextItems((previous) =>
         previous.map((item) =>
           item.kind === "url" && item.url === notification.pricing_url
-            ? { ...item, transform: 'done', value: notification.yaml_content }
+            ? { ...item, transform: "done", value: notification.yaml_content }
             : item
         )
       );
     });
-    return () => eventSource.close()
+    return () => eventSource.close();
   }, []);
 
   const detectedPricingUrls = useMemo(
@@ -225,6 +229,20 @@ function App() {
     setIsLoading(false);
   };
 
+  const getUrlItems = () =>
+    contextItems
+      .filter((item) => item.kind === "url")
+      .map((item) => ({ id: item.id, url: item.url }));
+
+  const getUniqueYamlFiles = () =>
+    Array.from(
+      new Set(
+        contextItems
+          .filter((item) => item.kind === "yaml")
+          .map((item) => item.value)
+      )
+    );
+
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
     if (isSubmitDisabled) return;
@@ -232,20 +250,9 @@ function App() {
     const trimmedQuestion = question.trim();
     if (!trimmedQuestion) return;
 
-    const contextUrls = contextItems
-      .filter((item) => item.kind === "url")
-      .map((item) => item.value);
-    const contextYamls = contextItems
-      .filter((item) => item.kind === "yaml")
-      .map((item) => item.value);
-
-    const combinedUrlSet = new Set<string>(contextUrls);
-    detectedPricingUrls.forEach((url) => combinedUrlSet.add(url));
-    const combinedUrls = Array.from(combinedUrlSet);
-    const dedupedYamls = Array.from(new Set(contextYamls));
-
-    const newlyDetected = detectedPricingUrls.filter(
-      (url) => !contextUrls.includes(url)
+    const newlyDetected = diffPricingContextWithQuestionUrls(
+      contextItems,
+      detectedPricingUrls
     );
     if (newlyDetected.length > 0) {
       addContextItems(
@@ -256,25 +263,9 @@ function App() {
           value: url,
           origin: "detected",
           uploaded: false,
-          transform: 'pending'
+          transform: "pending",
         }))
       );
-    }
-
-    const body: Record<string, unknown> = {
-      question: trimmedQuestion,
-    };
-
-    if (combinedUrls.length === 1) {
-      body.pricing_url = combinedUrls[0];
-    } else if (combinedUrls.length > 1) {
-      body.pricing_urls = combinedUrls;
-    }
-
-    if (dedupedYamls.length === 1) {
-      body.pricing_yaml = dedupedYamls[0];
-    } else if (dedupedYamls.length > 1) {
-      body.pricing_yamls = dedupedYamls;
     }
 
     const userMessage: ChatMessage = {
@@ -285,9 +276,18 @@ function App() {
     };
     setMessages((prev) => [...prev, userMessage]);
     setIsLoading(true);
-    setContextItems((prev) => prev.map(item => item.kind === "url" ? {...item, transform: 'pending'} : item))
+    setContextItems((prev) =>
+      prev.map((item) =>
+        item.kind === "url" ? { ...item, transform: "pending" } : item
+      )
+    );
+
     try {
-      const data = await chatWithAgent(body);
+      const requestBody: ChatRequest = {
+        question: trimmedQuestion,
+        ...createContextBodyPayload(getUrlItems(), getUniqueYamlFiles()),
+      };
+      const data = await chatWithAgent(requestBody);
 
       const assistantMessage: ChatMessage = {
         id: crypto.randomUUID(),
@@ -313,7 +313,7 @@ function App() {
             value: url,
             origin: "agent",
             uploaded: false,
-            transform: 'not-started'
+            transform: "not-started",
           }))
         );
       }

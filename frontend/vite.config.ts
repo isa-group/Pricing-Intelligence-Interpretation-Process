@@ -7,10 +7,27 @@ export default defineConfig({
   plugins: [react()],
   test: {
     globals: true,
-    browser: {
-      provider: playwright(),
-      enabled: true,
-      instances: [{ browser: "chromium" }],
-    },
+    projects: [
+      {
+        extends: true,
+        test: {
+          include: ["tests/**/*.unit.{test,spec}.ts"],
+          name: "unit",
+          environment: "node",
+        },
+      },
+      {
+        extends: true,
+        test: {
+          include: ["tests/**/*.browser.{test,spec}.ts"],
+          name: "browser",
+          browser: {
+            enabled: true,
+            provider: playwright(),
+            instances: [{ browser: "chromium" }],
+          },
+        },
+      },
+    ],
   },
 });

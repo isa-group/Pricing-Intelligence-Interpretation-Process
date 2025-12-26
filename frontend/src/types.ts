@@ -71,3 +71,38 @@ export interface NotificationUrlEvent {
   pricing_url: string;
   yaml_content: string;
 }
+
+export type ChatRequest = {
+  question: string;
+} & PricingContextPayload;
+
+export interface PricingContextUrlWithId {
+  id: string,
+  url: string
+}
+
+export type PricingContextPayload =
+  | {
+      pricing_url: PricingContextUrlWithId;
+      pricing_urls?: never;
+      pricing_yaml: string;
+      pricing_yamls?: never;
+    }
+  | {
+      pricing_url: PricingContextUrlWithId;
+      pricing_urls?: never;
+      pricing_yaml?: never;
+      pricing_yamls: string[];
+    }
+  | {
+      pricing_url?: never;
+      pricing_urls: PricingContextUrlWithId[];
+      pricing_yaml: string;
+      pricing_yamls?: never;
+    }
+  | {
+      pricing_url?: never;
+      pricing_urls: PricingContextUrlWithId[];
+      pricing_yaml?: never;
+      pricing_yamls: string[];
+    };

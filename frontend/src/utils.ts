@@ -1,3 +1,10 @@
+import {
+  ChatRequest,
+  PricingContextItem,
+  PricingContextPayload,
+  PricingContextUrlWithId,
+} from "./types";
+
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8086";
 
@@ -93,7 +100,39 @@ export async function deleteYamlPricing(filename: string): Promise<void> {
   }
 }
 
-async function chatWithAgent(body: Record<string, unknown>) {
+export function diffPricingContextWithQuestionUrls(
+  pricingContext: PricingContextItem[],
+  detectedPricingUrls: string[]
+) {
+  const contextUrls = pricingContext
+    .filter((item) => item.kind === "url")
+    .map((item) => item.value);
+  return detectedPricingUrls.filter(
+    (detectedUrl) => !contextUrls.includes(detectedUrl)
+  );
+}
+
+export const createContextBodyPayload = (
+  urls: PricingContextUrlWithId[],
+  yamls: string[]
+): PricingContextPayload => {
+  const payload = {} as PricingContextPayload;
+  if (urls.length === 1) {
+    payload.pricing_url = urls[0];
+  } else if (urls.length > 1) {
+    payload.pricing_urls = urls;
+  }
+
+  if (yamls.length === 1) {
+    payload.pricing_yaml = yamls[0];
+  } else if (yamls.length > 1) {
+    payload.pricing_yamls = yamls;
+  }
+
+  return payload;
+};
+
+export async function chatWithAgent(body: ChatRequest) {
   const response = await fetch(`${API_BASE_URL}/chat`, {
     method: "POST",
     headers: {
