@@ -12,6 +12,7 @@ import type {
 import { PROMPT_PRESETS } from "./prompts";
 import { ThemeContext, ThemeType } from "./context/themeContext";
 import {
+  chatWithAgent,
   deleteYamlPricing,
   extractHttpReferences,
   extractPricingUrls,
@@ -286,28 +287,7 @@ function App() {
     setIsLoading(true);
     setContextItems((prev) => prev.map(item => item.kind === "url" ? {...item, transform: 'pending'} : item))
     try {
-      const response = await fetch(`${API_BASE_URL}/chat`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(body),
-      });
-
-      if (!response.ok) {
-        let message = `API returned ${response.status}`;
-        try {
-          const detail = await response.json();
-          if (typeof detail?.detail === "string") {
-            message = detail.detail;
-          }
-        } catch (parseError) {
-          console.error("Failed to parse error response", parseError);
-        }
-        throw new Error(message);
-      }
-
-      const data = await response.json();
+      const data = await chatWithAgent(body);
 
       const assistantMessage: ChatMessage = {
         id: crypto.randomUUID(),

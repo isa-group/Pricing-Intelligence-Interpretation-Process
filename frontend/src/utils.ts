@@ -59,11 +59,14 @@ export function extractHttpReferences(payload: unknown): string[] {
 }
 
 interface UploadResponse {
-  filename: string
-  relative_url: string
+  filename: string;
+  relative_url: string;
 }
 
-export async function uploadYamlPricing(filename: string, content: string): Promise<string> {
+export async function uploadYamlPricing(
+  filename: string,
+  content: string
+): Promise<string> {
   const form = new FormData();
   form.append(
     "file",
@@ -74,11 +77,11 @@ export async function uploadYamlPricing(filename: string, content: string): Prom
     body: form,
   });
   if (!response.ok) {
-    throw new Error(`Upload failed for ${filename}`)
+    throw new Error(`Upload failed for ${filename}`);
   }
 
-  const json = await response.json()
-  return json.filename
+  const json = await response.json();
+  return json.filename;
 }
 
 export async function deleteYamlPricing(filename: string): Promise<void> {
@@ -86,7 +89,31 @@ export async function deleteYamlPricing(filename: string): Promise<void> {
     method: "DELETE",
   });
   if (!response.ok) {
-    throw new Error(`Cannot delete item ${filename}`)
+    throw new Error(`Cannot delete item ${filename}`);
+  }
+}
+
+async function chatWithAgent(body: Record<string, unknown>) {
+  const response = await fetch(`${API_BASE_URL}/chat`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    let message = `API returned ${response.status}`;
+    try {
+      const detail = await response.json();
+      if (typeof detail?.detail === "string") {
+        message = detail.detail;
+      }
+    } catch (parseError) {
+      console.error("Failed to parse error response", parseError);
+    }
+    throw new Error(message);
   }
 
+  return await response.json();
 }
