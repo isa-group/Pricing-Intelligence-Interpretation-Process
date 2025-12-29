@@ -68,6 +68,7 @@ export interface PromptPreset {
 }
 
 export interface NotificationUrlEvent {
+  id: string
   pricing_url: string;
   yaml_content: string;
 }

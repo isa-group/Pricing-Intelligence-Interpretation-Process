@@ -55,10 +55,6 @@ function ContextManagerItem({ item, onRemove }: ContextManagerItemProps) {
     `${SPHERE_EDITOR}?pricingUrl=${url}`;
 
   const formatEditorLink = () => {
-    if (item.kind === "url") {
-      return formatSphereEditorLink(`${API_BASE_URL}/static/${encodeURIComponent(item.url)}`)
-    }
-
     switch(item.origin) {
       case "preset":
       case "user":
@@ -100,7 +96,7 @@ function ContextManagerItem({ item, onRemove }: ContextManagerItemProps) {
         <a
           className="context-item-editor-link"
           target="_blank"
-          href={formatSphereEditorLink(item.url)}
+          href={formatEditorLink()}
         >
           <OpenInNewIcon width={24} height={24} />
         </a>

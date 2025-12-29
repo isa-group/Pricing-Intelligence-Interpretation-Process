@@ -43,7 +43,7 @@ function App() {
       const notification: NotificationUrlEvent = JSON.parse(event.data);
       setContextItems((previous) =>
         previous.map((item) =>
-          item.kind === "url" && item.url === notification.pricing_url
+          item.kind === "url" && item.id === notification.id
             ? { ...item, transform: "done", value: notification.yaml_content }
             : item
         )
