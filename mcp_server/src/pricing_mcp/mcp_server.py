@@ -211,10 +211,10 @@ async def ipricing(
 
 def upload_transformed_pricing(pricing_url: str, yaml_content: str):
     try:
-        files = {"file": (f"{quote(pricing_url)}", yaml_content, "application/yaml" )}
-        response = httpx.post(f"{settings.harvey_base_url}/upload", files=files)
+        data = {"pricing_url": pricing_url,  "yaml_content": yaml_content}
+        response = httpx.post(f"{settings.harvey_base_url}/upload/url", json=data)
         response.raise_for_status()
-        logger.info(f"Upload {pricing_url} completed")
+        logger.info(f"Upload of {pricing_url}  has been completed")
     except httpx.RequestError as exc:
         logger.error(f"An error occurred while requesting {exc.request.url!r}.")
     except httpx.HTTPStatusError as exc:
@@ -222,13 +222,13 @@ def upload_transformed_pricing(pricing_url: str, yaml_content: str):
 
 def notify_pricing_upload(pricing_url: str, yaml_content: str):
     try:
-        response = httpx.post(f"{settings.harvey_base_url}/events", json={"pricing_url": pricing_url, "yaml_content": yaml_content})
+        response = httpx.post(f"{settings.harvey_base_url}/events/url-transform", json={"pricing_url": pricing_url, "yaml_content": yaml_content})
         response.raise_for_status()
-        logger.info(f"Notifying harvey transformation of {pricing_url} was completed")
+        logger.info(f"Notifying HARVEY that transformation of {pricing_url} was completed")
     except httpx.RequestError as exc:
         logger.error(f"An error occurred while requesting {exc.request.url!r}.")
     except httpx.HTTPStatusError as exc:
-        logger.error(f"Upload failed with status {exc.response.status_code} while requesting {exc.request.url!r}.")
+        logger.error(f"Notifying HARVEY failed with status {exc.response.status_code} while requesting {exc.request.url!r}.")
 
 @mcp.resource("resource://pricing/specification")
 async def pricing2yaml_specification() -> str:

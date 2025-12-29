@@ -52,8 +52,11 @@ class ChatResponse(BaseModel):
     plan: Dict[str, Any]
     result: Dict[str, Any]
 
+def get_file_manager():
+    return FileManager(container.settings.harvey_static_dir)
 
 pricing_context_db: Dict[HttpUrl, ChatUrlItem] = {}
+file_mangager_dependency = Annotated[FileManager, Depends(get_file_manager)]
 
 
 @app.get("/health")
@@ -72,14 +75,14 @@ async def chat(
     if request.pricing_url:
         pricing_urls.append(str(request.pricing_url.url))
         pricing_context_db[request.pricing_url.url] = request.pricing_url
-        file_manager_service.write_file(request.pricing_url.id, "")
+        file_manager_service.write_file(request.pricing_url.id, b"")
     if request.pricing_urls:
         pricing_urls.extend(
             str(pricing_url_item.url) for pricing_url_item in request.pricing_urls
         )
         for pricing_url_item in request.pricing_urls:
             pricing_context_db[pricing_url_item.url] = pricing_url_item
-            file_manager_service.write_file(pricing_url_item.id, "")
+            file_manager_service.write_file(pricing_url_item.id, b"")
 
     pricing_yamls: List[str] = []
     if request.pricing_yaml:
@@ -149,15 +152,13 @@ async def server_sent_evennts(
 
 
 class NotificationUrlTransform(BaseModel):
-    pricing_url: str
+    pricing_url: HttpUrl
     yaml_content: str
 
 
-def get_file_manager():
-    return FileManager(container.settings.harvey_static_dir)
 
 
-@app.post("/transform", status_code=status.HTTP_201_CREATED)
+@app.post("/events/url-transform", status_code=status.HTTP_201_CREATED)
 async def url_done_update(
     notification: NotificationUrlTransform, stream: Stream = Depends(lambda: _stream)
 ) -> None:
@@ -165,15 +166,12 @@ async def url_done_update(
         JSONServerSentEvent(
             event="url_transform",
             data={
-                "pricing_url": notification.pricing_url,
+                "id": pricing_context_db[notification.pricing_url]["id"],
+                "pricing_url": str(notification.pricing_url),
                 "yaml_content": notification.yaml_content,
             },
         )
     )
-
-
-file_mangager_dependency = Annotated[FileManager, Depends(get_file_manager)]
-
 
 def is_yaml_file(content_type: str) -> bool:
     return content_type == "application/yaml" or content_type == "application/x-yaml"
@@ -203,7 +201,7 @@ async def upload_and_save_pricing(
 
 class UploadUrlPayload(BaseModel):
     pricing_url: HttpUrl
-    content: str = Field(min_length=1)
+    yaml_content: str = Field(min_length=1)
 
 
 @app.post(
@@ -218,7 +216,7 @@ async def upload_and_save_pricing(
             status_code=404, detail=f"Cannot locate {payload.pricing_url} in context"
         )
     filename = pricing_context_db[payload.pricing_url]["id"]
-    file_manager_service.write_file(filename, payload.content.encode())
+    file_manager_service.write_file(filename, payload.yaml_content.encode())
     return UploadResponse(filename=filename, relative_path=f"/static/{filename}")
 
 
