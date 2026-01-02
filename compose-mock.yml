@@ -1,0 +1,70 @@
+name: Pricing_Intelligence
+services:
+  fake-a-mint-api:
+    image: "wiremock/wiremock:latest"
+    ports:
+      - "8001:8080"
+    entrypoint: ["/docker-entrypoint.sh", "--global-response-templating", "--disable-gzip", "--verbose"]
+    volumes:
+      - ./wiremock/__files:/home/wiremock/__files
+      - ./wiremock/mappings:/home/wiremock/mappings
+  mcp-server:
+    build:
+      context: ./mcp_server
+      dockerfile: Dockerfile
+    environment:
+      - AMINT_BASE_URL=http://fake-a-mint-api:8080
+      - ANALYSIS_BASE_URL=http://analysis-api:3000
+      - HARVEY_BASE_URL=http://harvey-api:8086
+      - CACHE_BACKEND=memory
+      - LOG_LEVEL=INFO
+      - HTTP_HOST=0.0.0.0
+      - HTTP_PORT=8085
+    ports:
+      - "8085:8085"
+    depends_on:
+      - fake-a-mint-api
+    restart: unless-stopped
+  harvey-api:
+    build:
+      context: .
+      args:
+        HARVEY_STATIC_DIR: /app/static
+      dockerfile: harvey_api/Dockerfile
+    ports:
+      - "8086:8086"
+    environment:
+      - UVICORN_HOST=0.0.0.0
+      - UVICORN_PORT=8086
+      - LOG_LEVEL=INFO
+      - HARVEY_BASE_URL=http://harvey-api:8086
+      - HARVEY_STATIC_DIR=/app/static
+      - OPENAI_API_KEY=${HARVEY_API_KEY}
+      - OPENAI_MODEL=gemini-2.5-flash
+      - OPENAI_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai/
+      - AMINT_BASE_URL=http://fake-a-mint-api:8080
+      - ANALYSIS_BASE_URL=http://analysis-api:3000
+      - CACHE_BACKEND=memory
+      - MCP_TRANSPORT=stdio
+    depends_on:
+      - fake-a-mint-api
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8086/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+  mcp-frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        - VITE_API_BASE_URL=http://localhost:8086
+        - VITE_SPHERE_BASE_URL=https://sphere.score.us.es
+    environment:
+      NODE_ENV: development
+    ports:
+      - "80:80"
+    depends_on:
+      - harvey-api
+    restart: unless-stopped

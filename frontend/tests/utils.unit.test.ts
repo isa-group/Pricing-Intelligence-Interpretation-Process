@@ -1,6 +1,6 @@
 import { PricingContextItem } from "../src/types";
 import {
-  diffPricingContextWithQuestionUrls,
+  diffPricingContextWithDetectedUrls,
   extractPricingUrls,
 } from "../src/utils";
 
@@ -37,7 +37,7 @@ describe("Utils test suite", () => {
       "https://example.org",
       "https://github/pricing",
     ];
-    const newUrls = diffPricingContextWithQuestionUrls(
+    const newUrls = diffPricingContextWithDetectedUrls(
       pricingContext,
       detectedUrls
     );

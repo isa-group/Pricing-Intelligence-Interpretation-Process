@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional
-from urllib.parse import urlparse, quote
+from urllib.parse import urljoin
 
 import httpx
 from mcp.server.fastmcp import FastMCP  # type: ignore[import]
@@ -24,11 +24,14 @@ RESOURCE_ID = "resource://pricing/specification"
 VALID_SOLVERS = {"minizinc", "choco"}
 INVALID_SOLVER_ERROR = "solver must be either 'minizinc' or 'choco'."
 
-_PRICING2YAML_SPEC_PATH = Path(__file__).resolve().parent.joinpath("docs", "pricing2YamlSpecification.md")
+_PRICING2YAML_SPEC_PATH = (
+    Path(__file__).resolve().parent.joinpath("docs", "pricing2YamlSpecification.md")
+)
 try:
     _PRICING2YAML_SPEC = _PRICING2YAML_SPEC_PATH.read_text(encoding="utf-8")
 except FileNotFoundError:  # pragma: no cover - deployment safeguard
     _PRICING2YAML_SPEC = ""
+
 
 @mcp.tool()
 async def summary(
@@ -39,7 +42,9 @@ async def summary(
     """Return contextual pricing summary data."""
 
     if not (pricing_url or pricing_yaml):
-        raise ValueError("Either pricing_url or pricing_yaml must be provided for summary.")
+        raise ValueError(
+            "Either pricing_url or pricing_yaml must be provided for summary."
+        )
     logger.info(
         TOOL_INVOKED,
         tool="summary",
@@ -109,7 +114,9 @@ async def optimal(
     """Compute the optimal subscription under the provided constraints."""
 
     if not (pricing_url or pricing_yaml):
-        raise ValueError("optimal requires pricing_url or pricing_yaml to run analysis.")
+        raise ValueError(
+            "optimal requires pricing_url or pricing_yaml to run analysis."
+        )
 
     if solver not in VALID_SOLVERS:
         raise ValueError(INVALID_SOLVER_ERROR)
@@ -149,7 +156,9 @@ async def validate(
     """Validate the pricing configuration against the selected solver."""
 
     if not (pricing_url or pricing_yaml):
-        raise ValueError("validate requires pricing_url or pricing_yaml to run analysis.")
+        raise ValueError(
+            "validate requires pricing_url or pricing_yaml to run analysis."
+        )
 
     if solver not in VALID_SOLVERS:
         raise ValueError(INVALID_SOLVER_ERROR)
@@ -187,7 +196,9 @@ async def ipricing(
     """Return the canonical Pricing2Yaml (iPricing) document."""
 
     if not (pricing_url or pricing_yaml):
-        raise ValueError("iPricing requires pricing_url or pricing_yaml to produce an output.")
+        raise ValueError(
+            "iPricing requires pricing_url or pricing_yaml to produce an output."
+        )
 
     logger.info(
         TOOL_INVOKED,
@@ -209,26 +220,43 @@ async def ipricing(
     logger.info(TOOL_COMPLETED, tool="iPricing", pricing_yaml_length=pricing_yaml_len)
     return result
 
+
 def upload_transformed_pricing(pricing_url: str, yaml_content: str):
     try:
-        data = {"pricing_url": pricing_url,  "yaml_content": yaml_content}
-        response = httpx.post(f"{settings.harvey_base_url}/upload/url", json=data)
+        data = {"pricing_url": pricing_url, "yaml_content": yaml_content}
+        response = httpx.post(
+            urljoin(str(settings.harvey_base_url), "/upload/url"), json=data
+        )
         response.raise_for_status()
         logger.info(f"Upload of {pricing_url}  has been completed")
     except httpx.RequestError as exc:
-        logger.error(f"An error occurred while requesting {exc.request.url!r}.")
+        logger.error("An error occurred while requesting %s. %s", exc.request.url, exc)
     except httpx.HTTPStatusError as exc:
-        logger.error(f"Upload failed with status {exc.response.status_code} while requesting {exc.request.url!r}.")
+        logger.error(
+            "Upload failed with status %s while requesting %s. %s", exc.response.status_code,
+            exc.request.url, exc
+        )
+
 
 def notify_pricing_upload(pricing_url: str, yaml_content: str):
     try:
-        response = httpx.post(f"{settings.harvey_base_url}/events/url-transform", json={"pricing_url": pricing_url, "yaml_content": yaml_content})
+        data = {"pricing_url": pricing_url, "yaml_content": yaml_content}
+        response = httpx.post(
+            urljoin(str(settings.harvey_base_url), "/events/url-transform"),
+            json=data,
+        )
         response.raise_for_status()
-        logger.info(f"Notifying HARVEY that transformation of {pricing_url} was completed")
+        logger.info(
+            f"Notifying HARVEY that transformation of {pricing_url} was completed"
+        )
     except httpx.RequestError as exc:
-        logger.error(f"An error occurred while requesting {exc.request.url!r}.")
+        logger.error("An error occurred while requesting %s. %s", exc.request.url, exc)
     except httpx.HTTPStatusError as exc:
-        logger.error(f"Notifying HARVEY failed with status {exc.response.status_code} while requesting {exc.request.url!r}.")
+        logger.error(
+            "Notifying HARVEY failed with status %s while requesting %s. %s", exc.response.status_code,
+            exc.request.url, exc
+        )
+
 
 @mcp.resource("resource://pricing/specification")
 async def pricing2yaml_specification() -> str:

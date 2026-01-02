@@ -54,10 +54,12 @@ function ContextManagerItem({ item, onRemove }: ContextManagerItemProps) {
   const formatSphereEditorLink = (url: string) =>
     `${SPHERE_EDITOR}?pricingUrl=${url}`;
 
-  const formatEditorLink = () => {
+  const formatEditorLink = (): string => {
     switch(item.origin) {
       case "preset":
       case "user":
+      case "detected":
+      case "agent":
         return formatSphereEditorLink(`${API_BASE_URL}/static/${item.id}`)
       case "sphere":
         return formatSphereEditorLink(item.yamlPath)
@@ -65,6 +67,8 @@ function ContextManagerItem({ item, onRemove }: ContextManagerItemProps) {
         return "#"
     }
   }
+
+  const isSphereEditorEnabled = (item.kind === "yaml") || (item.kind === "url" && item.transform === "done")
 
   return (
     <li className="context-item">
@@ -83,16 +87,7 @@ function ContextManagerItem({ item, onRemove }: ContextManagerItemProps) {
       >
         <TrashIcon width={24} height={24} />
       </button>
-      {item.kind === "yaml" && (
-        <a
-          className="context-item-editor-link"
-          target="_blank"
-          href={formatEditorLink()}
-        >
-          <OpenInNewIcon width={24} height={24} />
-        </a>
-      )}
-      {item.kind === "url" && item.transform === "done" && (
+      {isSphereEditorEnabled && (
         <a
           className="context-item-editor-link"
           target="_blank"

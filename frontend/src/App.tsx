@@ -9,6 +9,7 @@ import type {
   ContextInputType,
   NotificationUrlEvent,
   ChatRequest,
+  PricingContextUrlWithId,
 } from "./types";
 import { PROMPT_PRESETS } from "./prompts";
 import { ThemeContext, ThemeType } from "./context/themeContext";
@@ -19,7 +20,7 @@ import {
   extractHttpReferences,
   extractPricingUrls,
   uploadYamlPricing,
-  diffPricingContextWithQuestionUrls,
+  diffPricingContextWithDetectedUrls,
 } from "./utils";
 import { PricingContext } from "./context/pricingContext";
 import { url } from "inspector";
@@ -115,13 +116,15 @@ function App() {
 
   const addContextItems = (inputs: ContextInputType[]) => {
     if (inputs.length === 0) {
-      return;
+      return null;
     }
 
     const newPricingContextItems: PricingContextItem[] =
       createPricingContextItems(inputs);
 
     setContextItems((previous) => [...previous, ...newPricingContextItems]);
+
+    return newPricingContextItems
   };
 
   const addContextItem = (input: ContextInputType) => {
@@ -250,12 +253,13 @@ function App() {
     const trimmedQuestion = question.trim();
     if (!trimmedQuestion) return;
 
-    const newlyDetected = diffPricingContextWithQuestionUrls(
+    const newlyDetected = diffPricingContextWithDetectedUrls(
       contextItems,
       detectedPricingUrls
     );
+    let newUrls: PricingContextUrlWithId[] = []
     if (newlyDetected.length > 0) {
-      addContextItems(
+      const newItems = addContextItems(
         newlyDetected.map((url) => ({
           kind: "url",
           url: url,
@@ -266,6 +270,7 @@ function App() {
           transform: "pending",
         }))
       );
+      newUrls = newItems ? newItems.filter(item => item.kind === "url").map(item =>({id: item.id, url: item.url})) : []
     }
 
     const userMessage: ChatMessage = {
@@ -285,7 +290,7 @@ function App() {
     try {
       const requestBody: ChatRequest = {
         question: trimmedQuestion,
-        ...createContextBodyPayload(getUrlItems(), getUniqueYamlFiles()),
+        ...createContextBodyPayload([...getUrlItems(), ...newUrls], getUniqueYamlFiles()),
       };
       const data = await chatWithAgent(requestBody);
 
@@ -304,9 +309,10 @@ function App() {
       const planReferences = extractHttpReferences(data?.plan);
       const resultReferences = extractHttpReferences(data?.result);
       const agentDiscoveredUrls = [...planReferences, ...resultReferences];
-      if (agentDiscoveredUrls.length > 0) {
+      const newAgentDiscovered = diffPricingContextWithDetectedUrls(contextItems, agentDiscoveredUrls)
+      if (newAgentDiscovered.length > 0) {
         addContextItems(
-          agentDiscoveredUrls.map((url) => ({
+          newAgentDiscovered.map((url) => ({
             kind: "url",
             url: url,
             label: url,

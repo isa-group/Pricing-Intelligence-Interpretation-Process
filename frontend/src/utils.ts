@@ -100,7 +100,7 @@ export async function deleteYamlPricing(filename: string): Promise<void> {
   }
 }
 
-export function diffPricingContextWithQuestionUrls(
+export function diffPricingContextWithDetectedUrls(
   pricingContext: PricingContextItem[],
   detectedPricingUrls: string[]
 ) {

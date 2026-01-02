@@ -3,7 +3,7 @@ from httpx import ASGITransport, AsyncClient
 import pytest
 from pydantic import HttpUrl
 
-from harvey_api.app import app, pricing_context_db, container
+from harvey_api.app import app, pricing_context_db, container, DbUrlItem
 
 
 client = TestClient(app)
@@ -54,13 +54,20 @@ def test_upload_file_given_url(monkeypatch):
     filename = "a7874223-be01-469d-95e3-04b17599f95c"
     test_url = "https://example.org/pricing"
     monkeypatch.setitem(
-        pricing_context_db, HttpUrl(test_url), {"id": filename, "url": test_url}
+        pricing_context_db, test_url, DbUrlItem(filename, test_url)
     )
     data = {"pricing_url": test_url, "yaml_content": "saasName: test\n"}
     response = client.post("/upload/url", json=data)
     assert response.status_code == 201
     response_body = response.json()
     assert response_body["filename"] == filename
+
+def test_upload_file_non_existent_url():
+    data = {"pricing_url": "https://example.org/non-existent", "yaml_content": "saasName: test\n"}
+    response = client.post("/upload/url", json=data)
+    assert response.status_code == 404
+    response_body = response.json()
+    assert response_body["detail"] == "Cannot locate https://example.org/non-existent in context"
 
 
 def test_url_done_update(monkeypatch):
@@ -75,10 +82,31 @@ def test_url_done_update(monkeypatch):
     assert response.status_code == 201
 
 
-def test_chat(monkeypatch):
+async def mock_handle_question(*args, **kwargs):
+    return {"answer": "Test answer", "plan": {}, "result": {}}
 
-    async def mock_handle_question(*args, **kwargs):
-        return {"answer": "Test answer", "plan": {}, "result": {}}
+def test_chat_single_url(monkeypatch):
+    monkeypatch.setattr(
+        container.agent,
+        "handle_question",
+        mock_handle_question,
+    )
+    
+    test_url = {
+        "id": "08a81efd-266c-4580-8b73-484834b76b94",
+        "url": "https://example.org/pricing",
+    }
+
+    data = {"question": "Will it work?", "pricing_url": test_url}
+    response = client.post("/chat", json=data)
+    assert response.status_code == 200
+    assert pricing_context_db[test_url["url"]] is not None
+    db_keys = list(pricing_context_db.keys())
+    assert isinstance(db_keys[0], str)
+    assert isinstance(pricing_context_db[test_url["url"]], DbUrlItem)
+    assert pricing_context_db[test_url["url"]].id == test_url["id"]
+
+def test_chat_multiple_urls(monkeypatch):
 
     monkeypatch.setattr(
         container.agent,
@@ -98,6 +126,6 @@ def test_chat(monkeypatch):
     data = {"question": "Will it work?", "pricing_urls": test_urls}
     response = client.post("/chat", json=data)
     assert response.status_code == 200
-    assert pricing_context_db[HttpUrl(test_url_first["url"])] is not None
+    assert pricing_context_db[test_url_first["url"]] is not None
     for test_url in test_urls:
-        assert pricing_context_db[HttpUrl(test_url["url"])].id == test_url["id"]
+        assert pricing_context_db[test_url["url"]].id == test_url["id"]

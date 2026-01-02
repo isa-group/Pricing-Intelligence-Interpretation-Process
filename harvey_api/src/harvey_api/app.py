@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from dataclasses import dataclass
 from typing import Annotated, Any, Dict, List, Optional
 
 from fastapi import (
@@ -38,7 +39,6 @@ class ChatUrlItem(BaseModel):
     id: str
     url: HttpUrl
 
-
 class ChatRequest(BaseModel):
     question: str
     pricing_url: Optional[ChatUrlItem] = None
@@ -55,7 +55,13 @@ class ChatResponse(BaseModel):
 def get_file_manager():
     return FileManager(container.settings.harvey_static_dir)
 
-pricing_context_db: Dict[HttpUrl, ChatUrlItem] = {}
+@dataclass
+class DbUrlItem:
+    id: str
+    url: str
+
+
+pricing_context_db: Dict[str, ChatUrlItem] = {}
 file_mangager_dependency = Annotated[FileManager, Depends(get_file_manager)]
 
 
@@ -73,15 +79,17 @@ async def chat(
         raise HTTPException(status_code=400, detail="Question is required.")
     pricing_urls: List[str] = []
     if request.pricing_url:
-        pricing_urls.append(str(request.pricing_url.url))
-        pricing_context_db[request.pricing_url.url] = request.pricing_url
+        pricing_url_str = pydantic_url_to_str(request.pricing_url.url)
+        pricing_urls.append(pricing_url_str)
+        pricing_context_db[pricing_url_str] = DbUrlItem(request.pricing_url.id, pricing_url_str)
         file_manager_service.write_file(request.pricing_url.id, b"")
     if request.pricing_urls:
         pricing_urls.extend(
             str(pricing_url_item.url) for pricing_url_item in request.pricing_urls
         )
         for pricing_url_item in request.pricing_urls:
-            pricing_context_db[pricing_url_item.url] = pricing_url_item
+            pricing_url_str = pydantic_url_to_str(pricing_url_item.url)
+            pricing_context_db[pricing_url_str] = DbUrlItem(pricing_url_item.id, pricing_url_str)
             file_manager_service.write_file(pricing_url_item.id, b"")
 
     pricing_yamls: List[str] = []
@@ -162,12 +170,13 @@ class NotificationUrlTransform(BaseModel):
 async def url_done_update(
     notification: NotificationUrlTransform, stream: Stream = Depends(lambda: _stream)
 ) -> None:
+    url_pricing_str = pydantic_url_to_str(notification.pricing_url)
     await stream.asend(
         JSONServerSentEvent(
             event="url_transform",
             data={
-                "id": pricing_context_db[notification.pricing_url]["id"],
-                "pricing_url": str(notification.pricing_url),
+                "id": pricing_context_db[url_pricing_str].id,
+                "pricing_url": pricing_context_db[url_pricing_str].url,
                 "yaml_content": notification.yaml_content,
             },
         )
@@ -210,12 +219,12 @@ class UploadUrlPayload(BaseModel):
 async def upload_and_save_pricing(
     payload: UploadUrlPayload, file_manager_service: file_mangager_dependency
 ):
-
-    if payload.pricing_url not in pricing_context_db:
+    pricing_url_str = pydantic_url_to_str(payload.pricing_url)
+    if pricing_url_str not in pricing_context_db:
         raise HTTPException(
-            status_code=404, detail=f"Cannot locate {payload.pricing_url} in context"
+            status_code=404, detail=f"Cannot locate {pricing_url_str} in context"
         )
-    filename = pricing_context_db[payload.pricing_url]["id"]
+    filename = pricing_context_db[pricing_url_str].id
     file_manager_service.write_file(filename, payload.yaml_content.encode())
     return UploadResponse(filename=filename, relative_path=f"/static/{filename}")
 
@@ -228,3 +237,6 @@ async def delete_pricing(filename: str, file_manager_service: file_mangager_depe
         raise HTTPException(
             status_code=404, detail=f"File with name {filename} doesn't exist"
         )
+
+def pydantic_url_to_str(url: HttpUrl) -> str:
+    return str(url)
