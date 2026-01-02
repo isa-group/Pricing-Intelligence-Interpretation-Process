@@ -3,7 +3,7 @@ from __future__ import annotations
 from functools import lru_cache
 from typing import Literal, Optional
 
-from pydantic import AnyHttpUrl, Field
+from pydantic import AnyHttpUrl, Field, HttpUrl
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -25,6 +25,7 @@ class Settings(BaseSettings):
     analysis_api_key: Optional[str] = Field(
         default=None, description="API key for Analysis API if enforced"
     )
+    harvey_base_url: HttpUrl = Field(description="HARVEY API base URL")
 
     # Async behaviour
     http_timeout_seconds: float = 60.0
