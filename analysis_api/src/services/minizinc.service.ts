@@ -122,6 +122,7 @@ export default class MinizincService {
    */
     async validatePricing() {
         const dznPricing = this.convertPricingToDZN();
+        console.log(dznPricing);
         try {
             const result = await this._getConfigurationSpace(dznPricing);
             const allSolutions: CspSolution[] = result.allSolutions!;

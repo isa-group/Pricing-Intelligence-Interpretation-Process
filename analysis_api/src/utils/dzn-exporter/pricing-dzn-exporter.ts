@@ -18,7 +18,7 @@ import {
   getPlanPrices,
   getPlanNames,
 } from '../helpers/plans.js';
-import { getFeatureNames, getNumberOfFeatures } from '../helpers/features.js';
+import { getDefaultFeatureValues, getFeatureNames, getNumberOfFeatures } from '../helpers/features.js';
 import {
   calculateLinkedFeaturesMatrix,
   getNumberOfUsageLimits,
@@ -49,12 +49,14 @@ export function pricing2DZN(pricing: Pricing): string {
   const variablesBlock = generateChunkBlock(variableChunks);
 
   const featureNames = getFeatureNames(pricing.features);
+  const defaultFeatureValues = getDefaultFeatureValues(pricing.features, featureNames);
   const usageLimitNames = getUsageLimitNames(pricing.usageLimits);
   const planNames = getPlanNames(pricing.plans);
   const addOnNames = getAddOnNames(pricing.addOns);
 
   const namesChunks: Chunk[] = [
     { left: DZNKeywords.Features, value: JSON.stringify(featureNames) },
+    { left: DZNKeywords.DefaultFeatures, value: JSON.stringify(defaultFeatureValues) },
     {
       left: DZNKeywords.UsageLimits,
       value: JSON.stringify(usageLimitNames),
@@ -245,7 +247,24 @@ export function generateFilterDZN(pricing: Pricing, filterCriteria: FilterCriter
   // Generate min_price and max_price
   const minPrice = filterCriteria?.minPrice ?? 0.0;
   const maxPrice = filterCriteria?.maxPrice ?? UNLIMITED_VALUE;
+  const maxSubscriptionSize = filterCriteria?.maxSubscriptionSize ?? (pricing.plans ? Object.keys(pricing.plans).length + (pricing.addOns ? Object.keys(pricing.addOns).length : 0) : 0);
   
+  // Validate prices
+  if (minPrice < 0) {
+    throw new Error(`minPrice cannot be negative. Received: ${minPrice}`);
+  }
+  if (maxPrice < 0) {
+    throw new Error(`maxPrice cannot be negative. Received: ${maxPrice}`);
+  }
+  if (maxPrice < minPrice) {
+    throw new Error(`maxPrice cannot be less than minPrice. Received: minPrice=${minPrice}, maxPrice=${maxPrice}`);
+  }
+
+  // Validate maxSubscriptionSize
+  if (maxSubscriptionSize <= 0) {
+    throw new Error(`maxSubscriptionSize must be greater than zero. Received: ${maxSubscriptionSize}`);
+  }
+
   // Generate requested_features array
   // Array where position i indicates whether feature i must be in the subscription (1) or it does not matter (0)
   const requestedFeatures = featureNames.map(featureName => 
@@ -275,6 +294,10 @@ export function generateFilterDZN(pricing: Pricing, filterCriteria: FilterCriter
     {
       left: DZNKeywords.MaxPrice,
       value: Number(maxPrice*100).toFixed(0).toString(),
+    },
+    {
+      left: DZNKeywords.MaxSubscriptionSize,
+      value: JSON.stringify(maxSubscriptionSize),
     },
     {
       left: DZNKeywords.RequestedFeatures,

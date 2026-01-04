@@ -8,6 +8,22 @@ export function getFeatureNames(features: Record<string, Feature>) {
   return Object.values(features).map(feature => feature.name);
 }
 
+export function getDefaultFeatureValues(features: Record<string, Feature>, featuresNames: string[]) {
+  return featuresNames.map(name => {
+    const feature = features[name];
+
+    if (feature.valueType === 'BOOLEAN') {
+      return feature.defaultValue ? 1 : 0;
+    }else if (feature.valueType === 'NUMERIC') {
+      return feature.defaultValue as number;
+    }else if (feature.valueType === 'TEXT') {
+      return 1;
+    }else{
+      throw new Error(`Unsupported feature value type: ${feature.valueType}`);
+    }
+  });
+}
+
 export function isIntegrationType(string: string): boolean{
   return (
     string === 'API' ||

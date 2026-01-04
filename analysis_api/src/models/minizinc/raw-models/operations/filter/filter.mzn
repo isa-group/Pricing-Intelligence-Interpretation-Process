@@ -6,6 +6,7 @@ include "../validation/valid-subscription.mzn";
 
 float: min_price;
 float: max_price;
+float: max_subscription_size;
 array[FEATURES] of int: requested_features; % The position i indicates wether the feature i must be in the subscription.
 array[USAGE_LIMITS] of int: requested_usage_limits; % The position i indicates wether the usage limit i must be in the subscription.
 
@@ -33,3 +34,6 @@ constraint
 % The price of the subscription cannot exceed max_price, and must surpass min_price
 constraint subscription_cost_cents >= min_price;
 constraint subscription_cost_cents <= max_price;
+
+% Count selected plan (1 if selected_plan > 0, else 0) and selected addons
+constraint (if selected_plan > 0 then 1 else 0 endif) + sum(i in ADDONS)(if selected_addons[i] > 0 then 1 else 0 endif) <= max_subscription_size;

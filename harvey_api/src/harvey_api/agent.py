@@ -39,6 +39,7 @@ FilterCriteria shape (when used inside an action object):
 {
   "minPrice"?: number,
   "maxPrice"?: number,
+  "maxSubscriptionSize"?: number,
   "features"?: string[],
   "usageLimits"?: Array<Record<string, number>>
 }
@@ -49,6 +50,7 @@ Rules:
 - Set use_pricing2yaml_spec to true whenever the user asks about schema, syntax, or validation details so the agent consults the specification excerpt.
 - Put filters inside the specific action(s) that require them (e.g. subscriptions, optimal). Do NOT emit a top-level filters field.
 - Price filters: numeric only (no symbols), base currency of the YAML. minPrice = lower bound, maxPrice = upper bound.
+- maxSubscriptionSize: maximum total count of plan + add-ons in the subscription
 - features: exact feature.name values from the YAML (case-sensitive). Include only features that must be present.
 - usageLimits: array of single-key objects where key = usageLimit.name and value = minimum threshold (boolean limits use 1).
 - No other filter keys are allowed (only minPrice, maxPrice, features, usageLimits).
@@ -158,6 +160,7 @@ Use these descriptions to accurately interpret user intent and to map it to the 
   {
       "minPrice": number,
       "maxPrice": number,
+      "maxSubscriptionSize": number,
       "features": ["ExactFeatureNameFromYAML"],
       "usageLimits": [{"ExactUsageLimitNameFromYAML": number}]
   }
