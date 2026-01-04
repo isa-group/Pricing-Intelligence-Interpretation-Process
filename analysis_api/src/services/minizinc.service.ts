@@ -51,9 +51,9 @@ export default class MinizincService {
         const solutionResult = { subscription: {
                 plan: Object.keys(this.pricing.plans ?? {})[solution.selected_plan - 1],
                 addOns: this.pricing.addOns
-                    ? solution.selected_addons.map((addonIndex: number) =>
+                    ? solution.selected_addons.map((addonIndex: number, idx: number) =>
                         addonIndex === 1
-                            ? Object.keys(this.pricing.addOns ?? {})[addonIndex - 1]
+                            ? Object.keys(this.pricing.addOns ?? {})[idx]
                             : null
                     ).filter((addon: string | null) => addon !== null)
                     : [],
@@ -122,7 +122,7 @@ export default class MinizincService {
    */
     async validatePricing() {
         const dznPricing = this.convertPricingToDZN();
-        console.log(dznPricing);
+        
         try {
             const result = await this._getConfigurationSpace(dznPricing);
             const allSolutions: CspSolution[] = result.allSolutions!;
