@@ -10,7 +10,6 @@ int: num_plans;
 int: num_addons;
 
 array[1..num_features] of string: features;
-array[1..num_features] of int: default_features;
 array[1..num_usage_limits] of string: usage_limits;
 array[1..num_plans] of string: plans;
 array[1..num_addons] of string: addons;

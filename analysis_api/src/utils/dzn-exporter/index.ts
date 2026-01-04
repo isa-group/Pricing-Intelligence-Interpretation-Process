@@ -17,7 +17,6 @@ export enum DZNKeywords {
   NumberOfPlans = 'num_plans',
   NumberOfAddOns = 'num_addons',
   Features = 'features',
-  DefaultFeatures = 'default_features',
   UsageLimits = 'usage_limits',
   Plans = 'plans',
   AddOns = 'addons',

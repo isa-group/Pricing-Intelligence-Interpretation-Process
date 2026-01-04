@@ -31,7 +31,7 @@ constraint
   endif;
 
 constraint forall(f in FEATURES)(
-  subscription_features[f] = (if num_plans > 0 then plans_features[selected_plan, f] == 1 else false endif \/ features_included_in_selected_addons[f] == 1 \/ default_features[f] == 1)
+  subscription_features[f] = (if num_plans > 0 then plans_features[selected_plan, f] == 1 else false endif \/ features_included_in_selected_addons[f] == 1)
 );
 
 constraint

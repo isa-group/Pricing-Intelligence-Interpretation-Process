@@ -56,7 +56,6 @@ export function pricing2DZN(pricing: Pricing): string {
 
   const namesChunks: Chunk[] = [
     { left: DZNKeywords.Features, value: JSON.stringify(featureNames) },
-    { left: DZNKeywords.DefaultFeatures, value: JSON.stringify(defaultFeatureValues) },
     {
       left: DZNKeywords.UsageLimits,
       value: JSON.stringify(usageLimitNames),
