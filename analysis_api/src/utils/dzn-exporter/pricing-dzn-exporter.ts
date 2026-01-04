@@ -18,7 +18,7 @@ import {
   getPlanPrices,
   getPlanNames,
 } from '../helpers/plans.js';
-import { getDefaultFeatureValues, getFeatureNames, getNumberOfFeatures } from '../helpers/features.js';
+import { getFeatureNames, getNumberOfFeatures } from '../helpers/features.js';
 import {
   calculateLinkedFeaturesMatrix,
   getNumberOfUsageLimits,
@@ -49,7 +49,6 @@ export function pricing2DZN(pricing: Pricing): string {
   const variablesBlock = generateChunkBlock(variableChunks);
 
   const featureNames = getFeatureNames(pricing.features);
-  const defaultFeatureValues = getDefaultFeatureValues(pricing.features, featureNames);
   const usageLimitNames = getUsageLimitNames(pricing.usageLimits);
   const planNames = getPlanNames(pricing.plans);
   const addOnNames = getAddOnNames(pricing.addOns);
@@ -273,16 +272,17 @@ export function generateFilterDZN(pricing: Pricing, filterCriteria: FilterCriter
   // Generate requested_usage_limits array
   // Array where position i indicates whether usage limit i must have a value bigger than that value when solving the model
   const requestedUsageLimits = usageLimitNames.map(usageLimitName => {
-    if (!filterCriteria?.usageLimits || filterCriteria.usageLimits.length === 0) {
+    if (!filterCriteria?.usageLimits || Object.keys(filterCriteria.usageLimits).length === 0) {
       return 0;
     }
-    
-    // Check if any of the usage limit objects contains this usage limit name
-    const hasUsageLimit = filterCriteria.usageLimits.some(ul => 
-      Object.prototype.hasOwnProperty.call(ul, usageLimitName)
-    );
 
-    return hasUsageLimit ? filterCriteria.usageLimits.find(ul => Object.prototype.hasOwnProperty.call(ul, usageLimitName))?.[usageLimitName] : 0;
+    const usageLimitFilterValue = filterCriteria.usageLimits[usageLimitName as keyof typeof filterCriteria.usageLimits];
+
+    if (typeof usageLimitFilterValue !== 'number' && usageLimitFilterValue) {
+      throw new Error(`Usage limit filter values must be numbers. Received: ${usageLimitFilterValue} for usage limit ${usageLimitName}`);
+    }
+
+    return usageLimitFilterValue ?? 0;
   });
   
   const filterChunks: Chunk[] = [
