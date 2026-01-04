@@ -221,7 +221,7 @@ interface FilterCriteria {
   minPrice?: number;                        // Minimum price
   maxSubscriptionSize?: number;             // Upper limit for the number of items allowed within a subscription. An "item" is counted as any individual component of the subscription, including the base plan and all associated add-ons.
   features?: string[];                      // Required features
-  usageLimits?: Record<string, number>[];   // Usage limits per feature
+  usageLimits?: Record<string, number>;   // Usage limits per feature
 }
 ```
 

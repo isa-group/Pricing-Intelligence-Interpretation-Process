@@ -52,7 +52,7 @@ Rules:
 - Price filters: numeric only (no symbols), base currency of the YAML. minPrice = lower bound, maxPrice = upper bound.
 - maxSubscriptionSize: maximum total count of plan + add-ons in the subscription
 - features: exact feature.name values from the YAML (case-sensitive). Include only features that must be present.
-- usageLimits: array of single-key objects where key = usageLimit.name and value = minimum threshold (boolean limits use 1).
+- usageLimits: object where keys are usageLimit.name and values define the minimum threshold (boolean limits use 1).
 - No other filter keys are allowed (only minPrice, maxPrice, features, usageLimits).
 - If feature / usageLimit names can't be grounded yet (YAML not fetched), include an initial "iPricing" action first; subsequent actions may then include grounded filters.
 - Use "minizinc" as the default solver unless the user explicitly asks for "choco". Specify the solver inside each action that needs it.
