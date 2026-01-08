@@ -20,6 +20,7 @@
     "axios": "^1.9.0",
     "cors": "^2.8.5",
     "express": "^4.21.2",
+    "form-data": "^4.0.5",
     "install": "^0.13.0",
     "js-yaml": "^4.1.0",
     "minizinc": "^4.4.4",

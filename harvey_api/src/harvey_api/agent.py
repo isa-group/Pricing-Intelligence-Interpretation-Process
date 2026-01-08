@@ -41,7 +41,7 @@ FilterCriteria shape (when used inside an action object):
   "maxPrice"?: number,
   "maxSubscriptionSize"?: number,
   "features"?: string[],
-  "usageLimits"?: Array<Record<string, number>>
+  "usageLimits"?: Record<string, number>
 }
 Rules:
 - Produce valid JSON with double quotes only. Do not wrap the response in Markdown fences or natural language.
@@ -162,13 +162,13 @@ Use these descriptions to accurately interpret user intent and to map it to the 
       "maxPrice": number,
       "maxSubscriptionSize": number,
       "features": ["ExactFeatureNameFromYAML"],
-      "usageLimits": [{"ExactUsageLimitNameFromYAML": number}]
+      "usageLimits": {"ExactUsageLimitNameFromYAML": number}
   }
   ```
 - **Grounding**: You MUST use the exact `feature.name` and `usageLimit.name` from the provided YAML content.
 - **Mapping**:
   - "with SSO" -> `features: ["SSO"]` (if "SSO" is the name in YAML).
-  - "at least 10 users" -> `usageLimits: [{"Users": 10}]` (if "Users" is the name in YAML).
+  - "at least 10 users" -> `usageLimits: {"Users": 10}` (if "Users" is the name in YAML).
   - "under $50" -> `maxPrice: 50`.
 
 ### Response Format
