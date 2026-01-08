@@ -113,7 +113,7 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        - VITE_API_BASE_URL=http://harvey-api:8086
+        - VITE_API_BASE_URL=http://localhost:8086
     ports:
       - "80:80"
     depends_on:

@@ -39,8 +39,9 @@ FilterCriteria shape (when used inside an action object):
 {
   "minPrice"?: number,
   "maxPrice"?: number,
+  "maxSubscriptionSize"?: number,
   "features"?: string[],
-  "usageLimits"?: Array<Record<string, number>>
+  "usageLimits"?: Record<string, number>
 }
 Rules:
 - Produce valid JSON with double quotes only. Do not wrap the response in Markdown fences or natural language.
@@ -49,8 +50,9 @@ Rules:
 - Set use_pricing2yaml_spec to true whenever the user asks about schema, syntax, or validation details so the agent consults the specification excerpt.
 - Put filters inside the specific action(s) that require them (e.g. subscriptions, optimal). Do NOT emit a top-level filters field.
 - Price filters: numeric only (no symbols), base currency of the YAML. minPrice = lower bound, maxPrice = upper bound.
+- maxSubscriptionSize: maximum total count of plan + add-ons in the subscription
 - features: exact feature.name values from the YAML (case-sensitive). Include only features that must be present.
-- usageLimits: array of single-key objects where key = usageLimit.name and value = minimum threshold (boolean limits use 1).
+- usageLimits: object where keys are usageLimit.name and values define the minimum threshold (boolean limits use 1).
 - No other filter keys are allowed (only minPrice, maxPrice, features, usageLimits).
 - If feature / usageLimit names can't be grounded yet (YAML not fetched), include an initial "iPricing" action first; subsequent actions may then include grounded filters.
 - Use "minizinc" as the default solver unless the user explicitly asks for "choco". Specify the solver inside each action that needs it.
@@ -158,14 +160,15 @@ Use these descriptions to accurately interpret user intent and to map it to the 
   {
       "minPrice": number,
       "maxPrice": number,
+      "maxSubscriptionSize": number,
       "features": ["ExactFeatureNameFromYAML"],
-      "usageLimits": [{"ExactUsageLimitNameFromYAML": number}]
+      "usageLimits": {"ExactUsageLimitNameFromYAML": number}
   }
   ```
 - **Grounding**: You MUST use the exact `feature.name` and `usageLimit.name` from the provided YAML content.
 - **Mapping**:
   - "with SSO" -> `features: ["SSO"]` (if "SSO" is the name in YAML).
-  - "at least 10 users" -> `usageLimits: [{"Users": 10}]` (if "Users" is the name in YAML).
+  - "at least 10 users" -> `usageLimits: {"Users": 10}` (if "Users" is the name in YAML).
   - "under $50" -> `maxPrice: 50`.
 
 ### Response Format
