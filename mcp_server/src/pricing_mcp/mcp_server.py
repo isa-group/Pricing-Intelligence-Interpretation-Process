@@ -9,7 +9,11 @@ from .container import container
 from .logging import get_logger
 
 settings = container.settings
-mcp = FastMCP(settings.mcp_server_name)
+mcp = FastMCP(
+    settings.mcp_server_name,
+    host=settings.http_host,
+    port=settings.http_port,
+)
 logger = get_logger(__name__)
 
 # Event names for structured logs

@@ -22,4 +22,4 @@ RUN uv pip install --system .
 
 EXPOSE 8085
 
-CMD ["python", "-m", "pricing_mcp.http_api"]
+CMD ["python", "-m", "pricing_mcp.mcp_server"]

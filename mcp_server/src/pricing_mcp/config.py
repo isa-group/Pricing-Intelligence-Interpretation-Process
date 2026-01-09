@@ -38,7 +38,7 @@ class Settings(BaseSettings):
 
     # MCP interface
     mcp_server_name: str = "pricing-intelligence"
-    mcp_transport: Literal["stdio", "websocket"] = "stdio"
+    mcp_transport: Literal["stdio", "websocket", "sse"] = "stdio"
     http_host: str = "0.0.0.0"
     http_port: int = 8085
 

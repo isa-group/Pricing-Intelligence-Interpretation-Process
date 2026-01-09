@@ -11,6 +11,7 @@ from typing import Any, Dict, List, Optional
 
 from mcp.client.session import ClientSession  # type: ignore[import]
 from mcp.client.stdio import StdioServerParameters, stdio_client  # type: ignore[import]
+from mcp.client.sse import sse_client  # type: ignore[import]
 
 from ..config import get_settings
 from ..logging import get_logger
@@ -25,22 +26,35 @@ class MCPClientError(Exception):
 class MCPWorkflowClient:
     def __init__(self) -> None:
         settings = get_settings()
-        self._module = settings.mcp_server_module
-        if not self._module:
-            raise ValueError("MCP server module must be configured via MCP_SERVER_MODULE")
-
-        self._python_executable = settings.mcp_python_executable or sys.executable
-        self._extra_python_paths = self._parse_extra_paths(settings.mcp_extra_python_paths)
-        self._server_src, self._inject_server_path = self._locate_mcp_server_sources()
-        if self._server_src:
-            logger.info("harvey.mcp.server.path", path=str(self._server_src))
-        else:
-            logger.info("harvey.mcp.server.path_missing")
-        self._env = self._build_environment()
+        self.transport = settings.mcp_transport
 
         self._exit_stack: Optional[AsyncExitStack] = None
         self._session: Optional[ClientSession] = None
         self._connect_lock = asyncio.Lock()
+
+        if self.transport == "stdio":
+            self._module = settings.mcp_server_module
+            if not self._module:
+                raise ValueError("MCP server module must be configured via MCP_SERVER_MODULE")
+
+            self._python_executable = settings.mcp_python_executable or sys.executable
+            self._extra_python_paths = self._parse_extra_paths(settings.mcp_extra_python_paths)
+            self._server_src, self._inject_server_path = self._locate_mcp_server_sources()
+            if self._server_src:
+                logger.info("harvey.mcp.server.path", path=str(self._server_src))
+            else:
+                logger.info("harvey.mcp.server.path_missing")
+            self._env = self._build_environment()
+        
+        elif self.transport == "sse":
+            self._url = settings.mcp_server_url
+            if not self._url:
+                raise ValueError("MCP server URL must be configured via MCP_SERVER_URL for SSE transport")
+            # Std/local vars not needed
+            self._module = "remote-sse" 
+        
+        else:
+             raise ValueError(f"Unknown MCP transport: {self.transport}")
 
     async def ensure_connected(self) -> ClientSession:
         if self._session is not None:
@@ -50,26 +64,30 @@ class MCPWorkflowClient:
             if self._session is not None:
                 return self._session
 
-            logger.info("harvey.mcp.launch.start", module=self._module)
+            logger.info("harvey.mcp.launch.start", transport=self.transport, module=self._module)
             exit_stack = AsyncExitStack()
             try:
-                params = StdioServerParameters(
-                    command=self._python_executable,
-                    args=["-m", self._module],
-                    env=self._env,
-                )
-                reader, writer = await exit_stack.enter_async_context(stdio_client(params))
+                if self.transport == "stdio":
+                    params = StdioServerParameters(
+                        command=self._python_executable,
+                        args=["-m", self._module],
+                        env=self._env,
+                    )
+                    reader, writer = await exit_stack.enter_async_context(stdio_client(params))
+                elif self.transport == "sse":
+                    reader, writer = await exit_stack.enter_async_context(sse_client(self._url))
+                
                 session = await exit_stack.enter_async_context(ClientSession(reader, writer))
                 await session.initialize()
 
                 self._exit_stack = exit_stack
                 self._session = session
-                logger.info("harvey.mcp.launch.success", module=self._module)
+                logger.info("harvey.mcp.launch.success", transport=self.transport, module=self._module)
                 return session
             except Exception as exc:  # pragma: no cover - subprocess launch failure
-                logger.error("harvey.mcp.launch.failed", module=self._module, error=str(exc))
+                logger.error("harvey.mcp.launch.failed", transport=self.transport, error=str(exc))
                 await exit_stack.aclose()
-                raise MCPClientError("Failed to start the MCP server") from exc
+                raise MCPClientError("Failed to start/connect the MCP server") from exc
 
     async def aclose(self) -> None:
         if self._exit_stack is None:
