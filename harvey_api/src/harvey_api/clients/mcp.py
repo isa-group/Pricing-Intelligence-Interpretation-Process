@@ -14,6 +14,12 @@ from mcp.client.stdio import StdioServerParameters, stdio_client  # type: ignore
 
 from ..config import get_settings
 from ..logging import get_logger
+from ..pricing_context import pricing_context_db
+from ..stream import stream
+from ..file_manager import FileManager
+
+from sse_starlette import JSONServerSentEvent
+
 
 logger = get_logger(__name__)
 
@@ -41,6 +47,7 @@ class MCPWorkflowClient:
         self._exit_stack: Optional[AsyncExitStack] = None
         self._session: Optional[ClientSession] = None
         self._connect_lock = asyncio.Lock()
+        self._file_manager = FileManager(settings.harvey_static_dir)
 
     async def ensure_connected(self) -> ClientSession:
         if self._session is not None:
@@ -107,7 +114,11 @@ class MCPWorkflowClient:
             "pricing_yaml": yaml_content,
             "refresh": refresh,
         }
-        return await self._call_tool("iPricing", arguments)
+        result =  await self._call_tool("iPricing", arguments)
+        yaml_content = result.get("pricing_yaml", "")
+        self._upload_transformed_pricing(url, yaml_content)
+        await self._notify_pricing_upload(url, yaml_content)
+        return result
 
     async def run_subscriptions(
         self,
@@ -442,3 +453,27 @@ class MCPWorkflowClient:
             self._format_message_content(value) for value in data.values() if value is not None
         ]
         return "\n".join(part for part in nested if part)
+
+
+    def _upload_transformed_pricing(self, pricing_url: str, yaml_content: str):
+
+        if pricing_url not in pricing_context_db:
+            logger.error("URL \"%s\" could not be saved", pricing_url)
+            raise Exception(f"Cannot locate {pricing_url} in context")
+        filename = pricing_context_db[pricing_url].id
+        self._file_manager.write_file(filename, yaml_content.encode())
+        logger.info("Saving extracted iPricing (URL: \"%s\") to %s", pricing_url, filename)
+
+
+    async def _notify_pricing_upload(self, pricing_url: str, yaml_content: str):
+        logger.info("Sending SSE completion event of %s", pricing_url)
+        await stream.asend(
+            JSONServerSentEvent(
+                event="url_transform",
+                data={
+                    "id": pricing_context_db[pricing_url].id,
+                    "pricing_url": pricing_context_db[pricing_url].url,
+                    "yaml_content": yaml_content,
+                },
+            )
+    )

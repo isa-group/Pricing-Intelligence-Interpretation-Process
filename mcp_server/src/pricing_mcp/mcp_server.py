@@ -5,7 +5,6 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 from urllib.parse import urljoin
 
-import httpx
 from mcp.server.fastmcp import FastMCP  # type: ignore[import]
 
 from .container import container
@@ -214,49 +213,9 @@ async def ipricing(
         refresh=refresh,
     )
     yaml_content = result.get("pricing_yaml", "")
-    upload_transformed_pricing(pricing_url, yaml_content)
-    notify_pricing_upload(pricing_url, yaml_content)
     pricing_yaml_len = len(yaml_content) if isinstance(result, dict) else None
     logger.info(TOOL_COMPLETED, tool="iPricing", pricing_yaml_length=pricing_yaml_len)
     return result
-
-
-def upload_transformed_pricing(pricing_url: str, yaml_content: str):
-    try:
-        data = {"pricing_url": pricing_url, "yaml_content": yaml_content}
-        response = httpx.post(
-            urljoin(str(settings.harvey_base_url), "/upload/url"), json=data
-        )
-        response.raise_for_status()
-        logger.info(f"Upload of {pricing_url}  has been completed")
-    except httpx.RequestError as exc:
-        logger.error("An error occurred while requesting %s. %s", exc.request.url, exc)
-    except httpx.HTTPStatusError as exc:
-        logger.error(
-            "Upload failed with status %s while requesting %s. %s", exc.response.status_code,
-            exc.request.url, exc
-        )
-
-
-def notify_pricing_upload(pricing_url: str, yaml_content: str):
-    try:
-        data = {"pricing_url": pricing_url, "yaml_content": yaml_content}
-        response = httpx.post(
-            urljoin(str(settings.harvey_base_url), "/events/url-transform"),
-            json=data,
-        )
-        response.raise_for_status()
-        logger.info(
-            f"Notifying HARVEY that transformation of {pricing_url} was completed"
-        )
-    except httpx.RequestError as exc:
-        logger.error("An error occurred while requesting %s. %s", exc.request.url, exc)
-    except httpx.HTTPStatusError as exc:
-        logger.error(
-            "Notifying HARVEY failed with status %s while requesting %s. %s", exc.response.status_code,
-            exc.request.url, exc
-        )
-
 
 @mcp.resource("resource://pricing/specification")
 async def pricing2yaml_specification() -> str:

@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import asyncio
-from dataclasses import dataclass
 from typing import Annotated, Any, Dict, List, Optional
 
 from fastapi import (
@@ -13,12 +11,14 @@ from fastapi import (
 )
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from sse_starlette import EventSourceResponse, ServerSentEvent, JSONServerSentEvent
-from pydantic import BaseModel, HttpUrl, Field
+from sse_starlette import EventSourceResponse
+from pydantic import BaseModel, HttpUrl
 
 from .clients import MCPClientError
 from .container import container, lifespan
 from .file_manager import FileManager
+from .stream import stream, Stream
+from .pricing_context import pricing_context_db, DbUrlItem
 
 app = FastAPI(title="H.A.R.V.E.Y. Pricing Assistant API", lifespan=lifespan)
 app.add_middleware(
@@ -55,13 +55,7 @@ class ChatResponse(BaseModel):
 def get_file_manager():
     return FileManager(container.settings.harvey_static_dir)
 
-@dataclass
-class DbUrlItem:
-    id: str
-    url: str
 
-
-pricing_context_db: Dict[str, ChatUrlItem] = {}
 file_mangager_dependency = Annotated[FileManager, Depends(get_file_manager)]
 
 
@@ -129,58 +123,12 @@ async def chat(
     )
 
 
-class Stream:
-    def __init__(self) -> None:
-        self._queue: Optional[asyncio.Queue[ServerSentEvent]] = None
-
-    @property
-    def queue(self) -> asyncio.Queue[ServerSentEvent]:
-        if self._queue is None:
-            self._queue = asyncio.Queue[ServerSentEvent]()
-        return self._queue
-
-    def __aiter__(self) -> "Stream":
-        return self
-
-    async def __anext__(self) -> ServerSentEvent:
-        return await self.queue.get()
-
-    async def asend(self, value: ServerSentEvent) -> None:
-        await self.queue.put(value)
-
-
-_stream = Stream()
-
-
 @app.get("/events")
 async def server_sent_evennts(
-    stream: Stream = Depends(lambda: _stream),
+    stream: Stream = Depends(lambda: stream),
 ) -> EventSourceResponse:
     return EventSourceResponse(stream)
 
-
-class NotificationUrlTransform(BaseModel):
-    pricing_url: HttpUrl
-    yaml_content: str
-
-
-
-
-@app.post("/events/url-transform", status_code=status.HTTP_201_CREATED)
-async def url_done_update(
-    notification: NotificationUrlTransform, stream: Stream = Depends(lambda: _stream)
-) -> None:
-    url_pricing_str = pydantic_url_to_str(notification.pricing_url)
-    await stream.asend(
-        JSONServerSentEvent(
-            event="url_transform",
-            data={
-                "id": pricing_context_db[url_pricing_str].id,
-                "pricing_url": pricing_context_db[url_pricing_str].url,
-                "yaml_content": notification.yaml_content,
-            },
-        )
-    )
 
 def is_yaml_file(content_type: str) -> bool:
     return content_type == "application/yaml" or content_type == "application/x-yaml"
@@ -206,27 +154,6 @@ async def upload_and_save_pricing(
     return UploadResponse(
         filename=file.filename, relative_path=f"/static/{file.filename}"
     )
-
-
-class UploadUrlPayload(BaseModel):
-    pricing_url: HttpUrl
-    yaml_content: str = Field(min_length=1)
-
-
-@app.post(
-    "/upload/url", status_code=status.HTTP_201_CREATED, response_model=UploadResponse
-)
-async def upload_and_save_pricing(
-    payload: UploadUrlPayload, file_manager_service: file_mangager_dependency
-):
-    pricing_url_str = pydantic_url_to_str(payload.pricing_url)
-    if pricing_url_str not in pricing_context_db:
-        raise HTTPException(
-            status_code=404, detail=f"Cannot locate {pricing_url_str} in context"
-        )
-    filename = pricing_context_db[pricing_url_str].id
-    file_manager_service.write_file(filename, payload.yaml_content.encode())
-    return UploadResponse(filename=filename, relative_path=f"/static/{filename}")
 
 
 @app.delete("/pricing/{filename}", status_code=204)

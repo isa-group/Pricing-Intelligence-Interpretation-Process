@@ -49,26 +49,6 @@ def test_delete_non_existent_file():
     assert response_body["detail"] == f"File with name {filename} doesn't exist"
 
 
-def test_upload_file_given_url(monkeypatch):
-
-    filename = "a7874223-be01-469d-95e3-04b17599f95c"
-    test_url = "https://example.org/pricing"
-    monkeypatch.setitem(
-        pricing_context_db, test_url, DbUrlItem(filename, test_url)
-    )
-    data = {"pricing_url": test_url, "yaml_content": "saasName: test\n"}
-    response = client.post("/upload/url", json=data)
-    assert response.status_code == 201
-    response_body = response.json()
-    assert response_body["filename"] == filename
-
-def test_upload_file_non_existent_url():
-    data = {"pricing_url": "https://example.org/non-existent", "yaml_content": "saasName: test\n"}
-    response = client.post("/upload/url", json=data)
-    assert response.status_code == 404
-    response_body = response.json()
-    assert response_body["detail"] == "Cannot locate https://example.org/non-existent in context"
-
 
 def test_url_done_update(monkeypatch):
 
