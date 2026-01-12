@@ -37,8 +37,6 @@ function computeContextItemMetadata(
     case "detected":
     case "preset":
     case "user": {
-      const now = new Date();
-      res += `· ${now.toLocaleString()}`;
       return res;
     }
     case "sphere": {
