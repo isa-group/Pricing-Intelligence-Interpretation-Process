@@ -25,7 +25,6 @@ class Settings(BaseSettings):
     analysis_api_key: Optional[str] = Field(
         default=None, description="API key for Analysis API if enforced"
     )
-    harvey_base_url: HttpUrl = Field(description="HARVEY API base URL")
 
     # Async behaviour
     http_timeout_seconds: float = 60.0
