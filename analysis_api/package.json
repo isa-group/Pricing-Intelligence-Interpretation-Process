@@ -7,7 +7,7 @@
   "scripts": {
     "start": "node dist/index.js",
     "build": "tsc && cp src/openapi.yaml dist/ && cp -R src/models/minizinc/raw-models dist/models/minizinc/raw-models",
-    "dev": "nodemon src/app.ts",
+    "dev": "tsx src/index.ts",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage"
@@ -20,8 +20,10 @@
     "axios": "^1.9.0",
     "cors": "^2.8.5",
     "express": "^4.21.2",
+    "form-data": "^4.0.5",
     "install": "^0.13.0",
     "js-yaml": "^4.1.0",
+    "minizinc": "^4.4.4",
     "multer": "^2.0.0",
     "npm": "^11.4.1",
     "pricing4ts": "^0.10.2",
@@ -42,6 +44,7 @@
     "supertest": "^7.1.1",
     "ts-jest": "^29.3.4",
     "ts-node": "^10.9.2",
+    "tsx": "^4.21.0",
     "typescript": "^5.8.3"
   }
 }

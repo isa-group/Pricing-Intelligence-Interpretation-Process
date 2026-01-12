@@ -32,6 +32,16 @@ class Settings(BaseSettings):
         default=None,
         description="Additional os.pathsep-separated paths appended to PYTHONPATH for the MCP server",
     )
+    mcp_transport: Literal["stdio", "sse"] = Field(
+        default="stdio",
+        description="Transport mechanism for connecting to the MCP server",
+        env="MCP_TRANSPORT",
+    )
+    mcp_server_url: Optional[str] = Field(
+        default=None,
+        description="URL for the MCP server when using SSE transport",
+        env="MCP_SERVER_URL",
+    )
 
     # Async behaviour
     http_timeout_seconds: float = 60.0

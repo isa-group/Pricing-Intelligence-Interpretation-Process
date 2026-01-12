@@ -38,11 +38,6 @@ pytest
 
 # Launch MCP server (stdio transport)
 python -m pricing_mcp
-
-# Optional HTTP facade
-# The FastAPI app exposes /health; workflow endpoints are currently disabled.
-# Enable them if you need a non‑MCP HTTP integration.
-# python -m pricing_mcp.http_api
 ```
 
 The companion `harvey_api` project launches this MCP server via stdio and calls the MCP tools directly; no API keys are shared with clients.

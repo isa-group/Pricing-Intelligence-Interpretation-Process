@@ -34,6 +34,7 @@ export enum DZNKeywords {
   AddOnsExcludes = 'addons_excludes',
   MinPrice = 'min_price',
   MaxPrice = 'max_price',
+  MaxSubscriptionSize = 'max_subscription_size',
   RequestedFeatures = 'requested_features',
   RequestedUsageLimits = 'requested_usage_limits',
 }

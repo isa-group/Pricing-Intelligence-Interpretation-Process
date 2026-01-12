@@ -75,6 +75,7 @@ export type JobOperationType = 'validate' | 'optimal' | 'subscriptions' | 'filte
 export interface FilterCriteria {
   minPrice?: number;
   maxPrice?: number;
+  maxSubscriptionSize?: number;
   features?: string[];
   usageLimits?: Record<string, number>[];
 }

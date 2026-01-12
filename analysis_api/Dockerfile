@@ -14,22 +14,24 @@ RUN apt-get update && apt-get install -y curl wget unzip
 # Install minizinc
 RUN apt-get update && apt-get install -y minizinc && apt-get clean
 
-# Copy package files
-COPY package*.json ./
+# Enable pnpm via corepack
+RUN corepack enable && corepack prepare pnpm@latest --activate
+
+# Copy package files (pnpm)
+COPY package.json pnpm-lock.yaml ./
 
 # Install dependencies (including dev dependencies for building)
-RUN npm ci && npm cache clean --force
+RUN pnpm install --frozen-lockfile
 
 # Copy source code
 COPY src/ ./src/
 COPY tsconfig.json ./
 
 # Build TypeScript
-# RUN NODE_OPTIONS="--max-old-space-size=8192" npm run build
-RUN npm run build
+RUN pnpm run build
 
 # Remove dev dependencies after build
-RUN npm prune --production
+RUN pnpm prune --prod
 
 # Create necessary directories
 RUN mkdir -p /tmp && \
@@ -52,4 +54,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:3000/health || exit 1
 
 # Start the application
-CMD ["npm", "start"]
+CMD ["pnpm", "start"]
