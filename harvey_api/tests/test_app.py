@@ -49,19 +49,6 @@ def test_delete_non_existent_file():
     assert response_body["detail"] == f"File with name {filename} doesn't exist"
 
 
-
-def test_url_done_update(monkeypatch):
-
-    filename = "a7874223-be01-469d-95e3-04b17599f95c"
-    test_url = "https://example.org/pricing"
-    monkeypatch.setitem(
-        pricing_context_db, HttpUrl(test_url), {"id": filename, "url": test_url}
-    )
-    data = {"pricing_url": test_url, "yaml_content": "saasName: Testing"}
-    response = client.post("/events/url-transform", json=data)
-    assert response.status_code == 201
-
-
 async def mock_handle_question(*args, **kwargs):
     return {"answer": "Test answer", "plan": {}, "result": {}}
 

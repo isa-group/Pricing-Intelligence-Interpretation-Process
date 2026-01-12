@@ -35,12 +35,10 @@ class Settings(BaseSettings):
     mcp_transport: Literal["stdio", "sse"] = Field(
         default="stdio",
         description="Transport mechanism for connecting to the MCP server",
-        env="MCP_TRANSPORT",
     )
     mcp_server_url: Optional[str] = Field(
         default=None,
         description="URL for the MCP server when using SSE transport",
-        env="MCP_SERVER_URL",
     )
 
     # Async behaviour
