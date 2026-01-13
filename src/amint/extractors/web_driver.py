@@ -1,6 +1,7 @@
 import os
 import logging
 import re
+import atexit
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
@@ -21,10 +22,16 @@ class WebDriver:
     """
     def __init__(self, chromedriver_install_path: str = "/app/chromedriver", page_load_timeout: int = 30):
         self.driver = None
+        self.service = None
         self.chromedriver_install_path = chromedriver_install_path
         self.page_load_timeout = page_load_timeout
         self.raw_html_length = 0
         self.cleaned_html_length = 0
+
+        # Ensure we always attempt to teardown Chrome/ChromeDriver on process exit.
+        # This helps reduce orphaned/zombie processes in cases of abrupt failures.
+        atexit.register(self.cleanup)
+
         self._setup_chrome_driver()
 
     def _setup_chrome_driver(self):
@@ -39,14 +46,19 @@ class WebDriver:
             chrome_options.add_argument("--disable-gpu")
             chrome_options.add_argument("--window-size=1920,1080")
 
-            service = Service(executable_path=installed_path)
-            self.driver = webdriver.Chrome(service=service, options=chrome_options)
+            self.service = Service(executable_path=installed_path)
+            self.driver = webdriver.Chrome(service=self.service, options=chrome_options)
+            # Apply timeouts at the driver level as well (driver.get can otherwise hang).
+            self.driver.set_page_load_timeout(self.page_load_timeout)
             logger.info("Chrome WebDriver initialized successfully")
         except WebDriverException as e:
             logger.critical(f"Failed to initialize Chrome WebDriver. Is Chrome browser installed? Error: {e}")
+            # Best-effort cleanup if ChromeDriver was partially started.
+            self.cleanup()
             raise
         except Exception as e:
             logger.critical(f"An unexpected error occurred during Chrome WebDriver setup: {e}")
+            self.cleanup()
             raise
 
     def __enter__(self):
@@ -54,6 +66,14 @@ class WebDriver:
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.cleanup()
+
+    def __del__(self):
+        # Best-effort cleanup if the caller forgets to use the context manager.
+        # __del__ can run during interpreter shutdown; keep it exception-safe.
+        try:
+            self.cleanup()
+        except Exception:
+            pass
 
     def _clean_html_content(self, html_content: str) -> str:
         if not html_content:
@@ -185,7 +205,25 @@ class WebDriver:
             raise
 
     def cleanup(self):
-        if self.driver:
-            self.driver.quit()
-            self.driver = None
-            logger.info("Chrome WebDriver closed")
+        driver = self.driver
+        service = self.service
+
+        # Clear refs first to avoid re-entrancy issues.
+        self.driver = None
+        self.service = None
+
+        if driver:
+            try:
+                driver.quit()
+            except Exception as e:
+                logger.warning("Error while quitting Chrome WebDriver: %s", e)
+
+        # In some environments, explicitly stopping the service helps prevent
+        # lingering ChromeDriver/Chrome processes.
+        if service:
+            try:
+                service.stop()
+            except Exception as e:
+                logger.warning("Error while stopping ChromeDriver service: %s", e)
+
+        logger.info("Chrome WebDriver closed")

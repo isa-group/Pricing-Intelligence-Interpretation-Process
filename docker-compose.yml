@@ -103,7 +103,7 @@ services:
     environment:
       - LOG_LEVEL=INFO
       - OPENAI_API_KEY=${HARVEY_API_KEY}
-      - OPENAI_MODEL=gpt-5.1
+      - OPENAI_MODEL=gpt-5-nano
       - HARVEY_STATIC_DIR=/app/static
       - AMINT_BASE_URL=http://a-mint-api:8000
       - ANALYSIS_BASE_URL=http://analysis-api:3000
