@@ -30,7 +30,6 @@ describe("Utils test suite", () => {
         value: "saasName: test\n",
         label: "test-pricing.yaml",
         origin: "user",
-        uploaded: true,
       },
     ];
     const detectedUrls: string[] = [

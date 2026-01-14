@@ -82,35 +82,6 @@ function App() {
     return isLoading || !hasQuestion;
   }, [question, isLoading]);
 
-  const getNotUploadedUserAndPresetItems = () =>
-    contextItems.filter(
-      (item) =>
-        item.origin &&
-        item.kind === "yaml" &&
-        (item.origin === "user" || item.origin === "preset") &&
-        !item.uploaded
-    );
-
-  useEffect(() => {
-    const itemsToUpload = getNotUploadedUserAndPresetItems();
-    if (itemsToUpload.length > 0) {
-      const uploadPromises = itemsToUpload.map((item) =>
-        uploadYamlPricing(item.id, item.value)
-      );
-      Promise.all(uploadPromises)
-        .then((uploadedItems) => {
-          setContextItems((previousItems) =>
-            previousItems.map((item) =>
-              uploadedItems.includes(item.id)
-                ? { ...item, uploaded: true }
-                : item
-            )
-          );
-        })
-        .catch((err) => console.error("Upload failed", err));
-    }
-  }, [contextItems]);
-
   const createPricingContextItems = (
     contextInputItems: ContextInputType[]
   ): PricingContextItem[] =>
@@ -136,6 +107,21 @@ function App() {
     const newPricingContextItems: PricingContextItem[] =
       createPricingContextItems(inputs);
 
+    const uploadPromises = newPricingContextItems
+      .filter(
+        (item) =>
+          item.kind === "yaml" &&
+          item.origin &&
+          (item.origin === "user" || item.origin === "preset")
+      )
+      .map((item) => uploadYamlPricing(`${item.id}.yaml`, item.value));
+
+    if (uploadPromises.length > 0) {
+      Promise.all(uploadPromises).catch((err) =>
+        console.error("Upload failed", err)
+      );
+    }
+
     setContextItems((previous) => [...previous, ...newPricingContextItems]);
 
     return newPricingContextItems;
@@ -154,7 +140,7 @@ function App() {
           item.origin &&
           (item.origin === "user" || item.origin === "preset")
       )
-      .map((item) => deleteYamlPricing(item.id));
+      .map((item) => deleteYamlPricing(`${item.id}.yaml`));
     if (deletePromises.length > 0) {
       Promise.all(deletePromises);
     }
@@ -172,6 +158,16 @@ function App() {
 
   const clearContext = () => {
     setContextItems([]);
+    const storedYamls = contextItems
+      .filter(
+        (item) =>
+          (item.kind === "yaml" && item.origin && item.origin !== "sphere") ||
+          (item.kind === "url" && item.transform === "done")
+      )
+      .map((item) => deleteYamlPricing(`${item.id}.yaml`));
+    Promise.all(storedYamls).catch(() =>
+      console.error("Failed to delete yamls")
+    );
   };
 
   const toggleTheme = () => {
@@ -199,7 +195,6 @@ function App() {
             label: result.name,
             value: result.content,
             origin: "user",
-            uploaded: false,
           }));
 
         if (inputs.length > 0) {
@@ -241,7 +236,6 @@ function App() {
           kind: entry.kind,
           label: entry.label,
           value: entry.value,
-          uploaded: false,
           origin: "preset",
         }))
       );
@@ -289,7 +283,6 @@ function App() {
           label: url,
           value: url,
           origin: "detected",
-          uploaded: false,
           transform: "pending",
         }))
       );
@@ -351,7 +344,6 @@ function App() {
             label: url,
             value: url,
             origin: "agent",
-            uploaded: false,
             transform: "not-started",
           }))
         );
@@ -424,7 +416,8 @@ function App() {
                 onSubmit={handleSubmit}
                 onFileSelect={handleFilesSelected}
                 onContextAdd={addContextItem}
-                onContextRemove={removeSphereContextItem}
+                onContextRemove={removeContextItem}
+                onSphereContextRemove={removeSphereContextItem}
                 onContextClear={clearContext}
               />
             </section>

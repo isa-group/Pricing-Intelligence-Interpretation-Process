@@ -478,9 +478,10 @@ class MCPWorkflowClient:
         if pricing_url not in pricing_context_db:
             logger.error("URL \"%s\" could not be saved", pricing_url)
             raise Exception(f"Cannot locate {pricing_url} in context")
-        filename = pricing_context_db[pricing_url].id
+        harvey_id = pricing_context_db[pricing_url].id
+        filename = f"{harvey_id}.yaml"
         self._file_manager.write_file(filename, yaml_content.encode())
-        logger.info("Saving extracted iPricing (URL: \"%s\") to %s", pricing_url, filename)
+        logger.info("Saving extracted iPricing (URL: \"%s\") to %s", pricing_url, harvey_id)
 
 
     async def _notify_pricing_upload(self, pricing_url: str, yaml_content: str):

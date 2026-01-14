@@ -58,7 +58,7 @@ function ContextManagerItem({ item, onRemove }: ContextManagerItemProps) {
       case "user":
       case "detected":
       case "agent":
-        return formatSphereEditorLink(`${API_BASE_URL}/static/${item.id}`)
+        return formatSphereEditorLink(`${API_BASE_URL}/static/${item.id}.yaml`)
       case "sphere":
         return formatSphereEditorLink(item.yamlPath)
       default:

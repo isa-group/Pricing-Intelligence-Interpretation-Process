@@ -68,6 +68,7 @@ async def health() -> dict[str, str]:
 async def chat(
     request: ChatRequest, file_manager_service: file_mangager_dependency
 ) -> ChatResponse:
+    file_extension = ".yaml"
     question = request.question.strip()
     if not question:
         raise HTTPException(status_code=400, detail="Question is required.")
@@ -76,7 +77,7 @@ async def chat(
         pricing_url_str = pydantic_url_to_str(request.pricing_url.url)
         pricing_urls.append(pricing_url_str)
         pricing_context_db[pricing_url_str] = DbUrlItem(request.pricing_url.id, pricing_url_str)
-        file_manager_service.write_file(request.pricing_url.id, b"")
+        file_manager_service.write_file(f"{request.pricing_url.id}{file_extension}", b"")
     if request.pricing_urls:
         pricing_urls.extend(
             str(pricing_url_item.url) for pricing_url_item in request.pricing_urls
@@ -84,7 +85,7 @@ async def chat(
         for pricing_url_item in request.pricing_urls:
             pricing_url_str = pydantic_url_to_str(pricing_url_item.url)
             pricing_context_db[pricing_url_str] = DbUrlItem(pricing_url_item.id, pricing_url_str)
-            file_manager_service.write_file(pricing_url_item.id, b"")
+            file_manager_service.write_file(f"{pricing_url_item.id}{file_extension}", b"")
 
     pricing_yamls: List[str] = []
     if request.pricing_yaml:

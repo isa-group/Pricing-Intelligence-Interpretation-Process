@@ -66,7 +66,6 @@ function PricingVersions({
       pricingName: name,
       version: version,
       collection: collectionName ?? null,
-      uploaded: true,
     });
   };
 

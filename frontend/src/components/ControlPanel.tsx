@@ -15,6 +15,7 @@ interface Props {
   onFileSelect: (files: FileList | null) => void;
   onContextAdd: (input: ContextInputType) => void;
   onContextRemove: (id: string) => void;
+  onSphereContextRemove: (sphereId: string) => void;
   onContextClear: () => void;
 }
 
@@ -29,6 +30,7 @@ function ControlPanel({
   onFileSelect,
   onContextAdd,
   onContextRemove,
+  onSphereContextRemove,
   onContextClear,
 }: Props) {
   const [showPricingModal, setPricingModal] = useState<boolean>(false);
@@ -98,7 +100,7 @@ function ControlPanel({
           <Modal open={showPricingModal} onClose={handleCloseModal}>
             <SearchPricings
               onContextAdd={onContextAdd}
-              onContextRemove={onContextRemove}
+              onContextRemove={onSphereContextRemove}
             />
           </Modal>
         </section>

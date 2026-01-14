@@ -31,7 +31,6 @@ export type YamlContextItemInput =
 
 export interface BaseYamlContextItemInput {
   kind: "yaml";
-  uploaded: boolean;
   label: string;
   value: string;
   origin?: Origins;
@@ -49,7 +48,6 @@ export interface UrlContextItemInput {
 export interface SphereContextItemInput {
   sphereId: string;
   kind: "yaml";
-  uploaded: boolean;
   label: string;
   value: string;
   origin: "sphere";
