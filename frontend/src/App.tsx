@@ -23,7 +23,6 @@ import {
   diffPricingContextWithDetectedUrls,
 } from "./utils";
 import { PricingContext } from "./context/pricingContext";
-import { url } from "inspector";
 
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8086";
@@ -366,8 +365,8 @@ function App() {
                 aria-label="Toggle color theme"
               >
                 {theme === "dark"
-                  ? "Switch to light mode"
-                  : "Switch to dark mode"}
+                  ? "☀️ Switch to light mode"
+                  : "🌙 Switch to dark mode"}
               </button>
             </div>
           </header>

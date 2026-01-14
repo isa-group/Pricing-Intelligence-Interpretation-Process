@@ -143,15 +143,6 @@ body::before {
   align-items: center;
 }
 
-.theme-toggle::before {
-  content: '☀️';
-  margin-right: 0.5rem;
-}
-
-:root[data-theme='dark'] .theme-toggle::before {
-  content: '🌙';
-}
-
 .session-reset {
   align-self: flex-start;
   padding: 0.65rem 1.4rem;
