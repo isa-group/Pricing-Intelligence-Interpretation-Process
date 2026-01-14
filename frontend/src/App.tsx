@@ -27,12 +27,25 @@ import { PricingContext } from "./context/pricingContext";
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8086";
 
+const initTheme = (): ThemeType => {
+  if (typeof window === "undefined") {
+    return "light";
+  }
+  const stored = window.localStorage.getItem("pricing-theme");
+  if (stored === "light" || stored === "dark") {
+    return stored;
+  }
+  return window.matchMedia("(prefers-color-scheme: dark)").matches
+    ? "dark"
+    : "light";
+};
+
 function App() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [question, setQuestion] = useState("");
   const [contextItems, setContextItems] = useState<PricingContextItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [theme, setTheme] = useState<ThemeType>("dark");
+  const [theme, setTheme] = useState<ThemeType>(() => initTheme());
 
   useEffect(() => {
     const eventSource = new EventSource(`${API_BASE_URL}/events`);
@@ -51,6 +64,13 @@ function App() {
     });
     return () => eventSource.close();
   }, []);
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem("pricing-theme", theme);
+    }
+  }, [theme]);
 
   const detectedPricingUrls = useMemo(
     () => extractPricingUrls(question),
@@ -72,11 +92,6 @@ function App() {
     );
 
   useEffect(() => {
-    document.documentElement.dataset.theme = theme;
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem("pricing-theme", theme);
-    }
-
     const itemsToUpload = getNotUploadedUserAndPresetItems();
     if (itemsToUpload.length > 0) {
       const uploadPromises = itemsToUpload.map((item) =>
@@ -94,7 +109,7 @@ function App() {
         })
         .catch((err) => console.error("Upload failed", err));
     }
-  }, [theme, contextItems]);
+  }, [contextItems]);
 
   const createPricingContextItems = (
     contextInputItems: ContextInputType[]
@@ -123,7 +138,7 @@ function App() {
 
     setContextItems((previous) => [...previous, ...newPricingContextItems]);
 
-    return newPricingContextItems
+    return newPricingContextItems;
   };
 
   const addContextItem = (input: ContextInputType) => {
@@ -256,7 +271,7 @@ function App() {
       contextItems,
       detectedPricingUrls
     );
-    let newUrls: PricingContextUrlWithId[] = []
+    let newUrls: PricingContextUrlWithId[] = [];
     if (newlyDetected.length > 0) {
       const newItems = addContextItems(
         newlyDetected.map((url) => ({
@@ -269,7 +284,11 @@ function App() {
           transform: "pending",
         }))
       );
-      newUrls = newItems ? newItems.filter(item => item.kind === "url").map(item =>({id: item.id, url: item.url})) : []
+      newUrls = newItems
+        ? newItems
+            .filter((item) => item.kind === "url")
+            .map((item) => ({ id: item.id, url: item.url }))
+        : [];
     }
 
     const userMessage: ChatMessage = {
@@ -289,7 +308,10 @@ function App() {
     try {
       const requestBody: ChatRequest = {
         question: trimmedQuestion,
-        ...createContextBodyPayload([...getUrlItems(), ...newUrls], getUniqueYamlFiles()),
+        ...createContextBodyPayload(
+          [...getUrlItems(), ...newUrls],
+          getUniqueYamlFiles()
+        ),
       };
       const data = await chatWithAgent(requestBody);
 
@@ -308,7 +330,10 @@ function App() {
       const planReferences = extractHttpReferences(data?.plan);
       const resultReferences = extractHttpReferences(data?.result);
       const agentDiscoveredUrls = [...planReferences, ...resultReferences];
-      const newAgentDiscovered = diffPricingContextWithDetectedUrls(contextItems, agentDiscoveredUrls)
+      const newAgentDiscovered = diffPricingContextWithDetectedUrls(
+        contextItems,
+        agentDiscoveredUrls
+      );
       if (newAgentDiscovered.length > 0) {
         addContextItems(
           newAgentDiscovered.map((url) => ({
