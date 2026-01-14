@@ -161,6 +161,15 @@ function App() {
     setContextItems((previous) => previous.filter((item) => item.id !== id));
   };
 
+  const removeSphereContextItem = (sphereId: string) => {
+    setContextItems((previous) =>
+      previous.filter(
+        (item) =>
+          item.origin && item.origin === "sphere" && item.sphereId !== sphereId
+      )
+    );
+  };
+
   const clearContext = () => {
     setContextItems([]);
   };
@@ -415,7 +424,7 @@ function App() {
                 onSubmit={handleSubmit}
                 onFileSelect={handleFilesSelected}
                 onContextAdd={addContextItem}
-                onContextRemove={removeContextItem}
+                onContextRemove={removeSphereContextItem}
                 onContextClear={clearContext}
               />
             </section>

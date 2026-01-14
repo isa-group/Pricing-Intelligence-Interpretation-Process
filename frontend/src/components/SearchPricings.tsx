@@ -7,9 +7,13 @@ import PricingListLoader from "./PricingListLoader";
 
 interface SearchPricingsProps {
   onContextAdd: (input: SphereContextItemInput) => void;
+  onContextRemove: (id: string) => void;
 }
 
-function SearchPricings({ onContextAdd }: SearchPricingsProps) {
+function SearchPricings({
+  onContextAdd,
+  onContextRemove,
+}: SearchPricingsProps) {
   const [search, setSearch] = useState<string>("");
   const [offset, setOffset] = useState<number>(0);
   const limit = 10;
@@ -47,6 +51,7 @@ function SearchPricings({ onContextAdd }: SearchPricingsProps) {
           <PricingsList
             pricings={result.pricings}
             onContextAdd={onContextAdd}
+            onContextRemove={onContextRemove}
           />
         </>
       ) : (

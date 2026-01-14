@@ -40,7 +40,8 @@ export async function fetchPricings(
       },
     }
   );
-  return await response.json();
+
+  return await response.json()
 }
 
 export async function fetchPricingYaml(url: string) {

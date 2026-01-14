@@ -9,6 +9,7 @@ interface PricingVersionProps {
   name: string;
   collectionName?: string | null;
   onContextAdd: (input: SphereContextItemInput) => void;
+  onContextRemove: (id: string) => void;
 }
 
 function PricingVersions({
@@ -16,6 +17,7 @@ function PricingVersions({
   name,
   collectionName,
   onContextAdd,
+  onContextRemove,
 }: PricingVersionProps) {
   const { loading, error, versions } = usePricingVersions(
     owner,
@@ -51,9 +53,10 @@ function PricingVersions({
     return res + "s";
   };
 
-  const handleAddSpherePricing = async (yamlUrl: string, version: string) => {
+  const handleAddSpherePricing = async (sphereId: string, yamlUrl: string, version: string) => {
     const yamlFile = await fetchPricingYaml(yamlUrl);
     onContextAdd({
+      sphereId: sphereId,
       kind: "yaml",
       label: calculateLabel(name, collectionName),
       value: yamlFile,
@@ -63,9 +66,10 @@ function PricingVersions({
       pricingName: name,
       version: version,
       collection: collectionName ?? null,
-      uploaded: true
+      uploaded: true,
     });
   };
+
 
   return (
     <>
@@ -80,13 +84,22 @@ function PricingVersions({
             <a target="_blank" className="version-label" href={item.yaml}>
               {item.version}
             </a>
-            <button
-              disabled={isVersionIncludedInContext(item.yaml)}
-              className="pricing-add-btn"
-              onClick={() => handleAddSpherePricing(item.yaml, item.version)}
-            >
-              {isVersionIncludedInContext(item.yaml) ? "Added" : "Add"}
-            </button>
+            {!isVersionIncludedInContext(item.yaml) && (
+              <button
+                className="pricing-add-btn"
+                onClick={() => handleAddSpherePricing(item.id, item.yaml, item.version)}
+              >
+                Add
+              </button>
+            )}
+            {isVersionIncludedInContext(item.yaml) && (
+              <button
+                className="pricing-add-btn"
+                onClick={() => onContextRemove(item.id)}
+              >
+                Remove
+              </button>
+            )}
           </li>
         ))}
       </ul>

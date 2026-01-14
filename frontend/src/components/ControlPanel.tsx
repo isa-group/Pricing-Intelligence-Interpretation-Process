@@ -96,7 +96,10 @@ function ControlPanel({
             the search bar.
           </p>
           <Modal open={showPricingModal} onClose={handleCloseModal}>
-            <SearchPricings onContextAdd={onContextAdd} />
+            <SearchPricings
+              onContextAdd={onContextAdd}
+              onContextRemove={onContextRemove}
+            />
           </Modal>
         </section>
         <div className="control-actions">

@@ -47,6 +47,7 @@ export interface UrlContextItemInput {
 }
 
 export interface SphereContextItemInput {
+  sphereId: string;
   kind: "yaml";
   uploaded: boolean;
   label: string;
@@ -68,7 +69,7 @@ export interface PromptPreset {
 }
 
 export interface NotificationUrlEvent {
-  id: string
+  id: string;
   pricing_url: string;
   yaml_content: string;
 }
@@ -78,8 +79,8 @@ export type ChatRequest = {
 } & PricingContextPayload;
 
 export interface PricingContextUrlWithId {
-  id: string,
-  url: string
+  id: string;
+  url: string;
 }
 
 export type PricingContextPayload =

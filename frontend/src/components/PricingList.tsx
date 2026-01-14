@@ -6,9 +6,10 @@ import PricingVersions from "./PricingVersion";
 interface PricingListProps {
   pricings: PricingSearchResultItem[];
   onContextAdd: (input: SphereContextItemInput) => void;
+  onContextRemove: (id: string) => void;
 }
 
-function PricingsList({ pricings, onContextAdd }: PricingListProps) {
+function PricingsList({ pricings, onContextAdd, onContextRemove }: PricingListProps) {
   const generateKey = (pricing: PricingSearchResultItem) =>
     `${pricing.owner}-${pricing.name}-${pricing.version}-${pricing.collectionName ?? "nocollection"}`;
 
@@ -32,6 +33,7 @@ function PricingsList({ pricings, onContextAdd }: PricingListProps) {
             name={item.name}
             collectionName={item.collectionName}
             onContextAdd={onContextAdd}
+            onContextRemove={onContextRemove}
           />
         </li>
       ))}
