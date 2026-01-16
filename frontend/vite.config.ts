@@ -1,13 +1,33 @@
-import react from '@vitejs/plugin-react';
-import { defineConfig, loadEnv } from 'vite';
+/// <reference types="vitest/config"/>
+import react from "@vitejs/plugin-react";
+import { defineConfig } from "vite";
+import { playwright } from "@vitest/browser-playwright";
 
-export default defineConfig(({ mode }) => {
-  const env = loadEnv(mode, process.cwd(), 'VITE_');
-  return {
-    plugins: [react()],
-    server: {
-      port: Number(env.VITE_PORT ?? 5173),
-      host: true
-    }
-  };
+export default defineConfig({
+  plugins: [react()],
+  test: {
+    globals: true,
+    projects: [
+      {
+        extends: true,
+        test: {
+          include: ["tests/**/*.unit.{test,spec}.ts"],
+          name: "unit",
+          environment: "node",
+        },
+      },
+      {
+        extends: true,
+        test: {
+          include: ["tests/**/*.browser.{test,spec}.ts"],
+          name: "browser",
+          browser: {
+            enabled: true,
+            provider: playwright(),
+            instances: [{ browser: "chromium" }],
+          },
+        },
+      },
+    ],
+  },
 });

@@ -19,11 +19,11 @@ class AMintError(Exception):
 @dataclass(slots=True)
 class TransformOptions:
     url: str
-    model: str = "gemini-2.5-flash"
+    model: str = "gpt-5.2"
     temperature: float = 0.7
-    better_model: str = "gemini-2.5-pro"
+    better_model: str = "gpt-5.2"
     max_tries: int = 50
-    base_url_override: Optional[str] = None
+    base_url_override: Optional[str] = "https://api.openai.com/v1"
 
 
 class AMintClient:

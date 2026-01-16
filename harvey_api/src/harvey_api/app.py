@@ -1,13 +1,24 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Annotated, Any, Dict, List, Optional
 
-from fastapi import FastAPI, HTTPException
+from fastapi import (
+    status,
+    FastAPI,
+    Depends,
+    UploadFile,
+    HTTPException,
+)
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from sse_starlette import EventSourceResponse
 from pydantic import BaseModel, HttpUrl
 
 from .clients import MCPClientError
 from .container import container, lifespan
+from .file_manager import FileManager
+from .stream import stream, Stream
+from .pricing_context import pricing_context_db, DbUrlItem
 
 app = FastAPI(title="H.A.R.V.E.Y. Pricing Assistant API", lifespan=lifespan)
 app.add_middleware(
@@ -17,11 +28,21 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.mount(
+    "/static",
+    StaticFiles(directory=container.settings.harvey_static_dir),
+    name="static",
+)
+
+
+class ChatUrlItem(BaseModel):
+    id: str
+    url: HttpUrl
 
 class ChatRequest(BaseModel):
     question: str
-    pricing_url: Optional[HttpUrl] = None
-    pricing_urls: Optional[List[HttpUrl]] = None
+    pricing_url: Optional[ChatUrlItem] = None
+    pricing_urls: Optional[List[ChatUrlItem]] = None
     pricing_yaml: Optional[str] = None
     pricing_yamls: Optional[List[str]] = None
 
@@ -31,6 +52,12 @@ class ChatResponse(BaseModel):
     plan: Dict[str, Any]
     result: Dict[str, Any]
 
+def get_file_manager():
+    return FileManager(container.settings.harvey_static_dir)
+
+
+file_mangager_dependency = Annotated[FileManager, Depends(get_file_manager)]
+
 
 @app.get("/health")
 async def health() -> dict[str, str]:
@@ -38,15 +65,27 @@ async def health() -> dict[str, str]:
 
 
 @app.post("/chat", response_model=ChatResponse)
-async def chat(request: ChatRequest) -> ChatResponse:
+async def chat(
+    request: ChatRequest, file_manager_service: file_mangager_dependency
+) -> ChatResponse:
+    file_extension = ".yaml"
     question = request.question.strip()
     if not question:
         raise HTTPException(status_code=400, detail="Question is required.")
     pricing_urls: List[str] = []
     if request.pricing_url:
-        pricing_urls.append(str(request.pricing_url))
+        pricing_url_str = pydantic_url_to_str(request.pricing_url.url)
+        pricing_urls.append(pricing_url_str)
+        pricing_context_db[pricing_url_str] = DbUrlItem(request.pricing_url.id, pricing_url_str)
+        file_manager_service.write_file(f"{request.pricing_url.id}{file_extension}", b"")
     if request.pricing_urls:
-        pricing_urls.extend(str(url) for url in request.pricing_urls)
+        pricing_urls.extend(
+            str(pricing_url_item.url) for pricing_url_item in request.pricing_urls
+        )
+        for pricing_url_item in request.pricing_urls:
+            pricing_url_str = pydantic_url_to_str(pricing_url_item.url)
+            pricing_context_db[pricing_url_str] = DbUrlItem(pricing_url_item.id, pricing_url_str)
+            file_manager_service.write_file(f"{pricing_url_item.id}{file_extension}", b"")
 
     pricing_yamls: List[str] = []
     if request.pricing_yaml:
@@ -54,7 +93,9 @@ async def chat(request: ChatRequest) -> ChatResponse:
         if stripped:
             pricing_yamls.append(stripped)
     if request.pricing_yamls:
-        pricing_yamls.extend(yaml.strip() for yaml in request.pricing_yamls if yaml and yaml.strip())
+        pricing_yamls.extend(
+            yaml.strip() for yaml in request.pricing_yamls if yaml and yaml.strip()
+        )
 
     # Deduplicate while preserving order to avoid duplicated contexts when both singular
     # and plural fields are provided or when identical contents are repeated.
@@ -81,3 +122,49 @@ async def chat(request: ChatRequest) -> ChatResponse:
         plan=response_payload["plan"],
         result=response_payload["result"],
     )
+
+
+@app.get("/events")
+async def server_sent_evennts(
+    stream: Stream = Depends(lambda: stream),
+) -> EventSourceResponse:
+    return EventSourceResponse(stream)
+
+
+def is_yaml_file(content_type: str) -> bool:
+    return content_type == "application/yaml" or content_type == "application/x-yaml"
+
+
+class UploadResponse(BaseModel):
+    filename: str
+    relative_path: str
+
+
+@app.post("/upload", status_code=status.HTTP_201_CREATED, response_model=UploadResponse)
+async def upload_and_save_pricing(
+    file: UploadFile, file_manager_service: file_mangager_dependency
+):
+    if not is_yaml_file(file.content_type):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid Content-Type: {file.content_type}. Only application/yaml is supported",
+        )
+    contents = await file.read()
+    file_manager_service.write_file(file.filename, contents)
+
+    return UploadResponse(
+        filename=file.filename, relative_path=f"/static/{file.filename}"
+    )
+
+
+@app.delete("/pricing/{filename}", status_code=204)
+async def delete_pricing(filename: str, file_manager_service: file_mangager_dependency):
+    try:
+        file_manager_service.delete_file(filename)
+    except FileNotFoundError:
+        raise HTTPException(
+            status_code=404, detail=f"File with name {filename} doesn't exist"
+        )
+
+def pydantic_url_to_str(url: HttpUrl) -> str:
+    return str(url)

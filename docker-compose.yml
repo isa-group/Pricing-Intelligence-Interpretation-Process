@@ -95,13 +95,16 @@ services:
   harvey-api:
     build:
       context: .
+      args:
+        HARVEY_STATIC_DIR: /app/static
       dockerfile: harvey_api/Dockerfile
     ports:
       - "8086:8086"
     environment:
       - LOG_LEVEL=INFO
       - OPENAI_API_KEY=${HARVEY_API_KEY}
-      - OPENAI_MODEL=gpt-5.1
+      - OPENAI_MODEL=gpt-5-nano
+      - HARVEY_STATIC_DIR=/app/static
       - AMINT_BASE_URL=http://a-mint-api:8000
       - ANALYSIS_BASE_URL=http://analysis-api:3000
       - CACHE_BACKEND=memory
@@ -124,6 +127,7 @@ services:
       dockerfile: Dockerfile
       args:
         - VITE_API_BASE_URL=http://localhost:8086
+        - VITE_SPHERE_BASE_URL=https://sphere.score.us.es
     ports:
       - "80:80"
     depends_on:
