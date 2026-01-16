@@ -1,4 +1,4 @@
-import { ChangeEvent, FormEvent, useState } from "react";
+import { ChangeEvent, FormEvent, useRef, useState } from "react";
 import ContextManager from "./ContextManager";
 import type { ContextInputType, PricingContextItem } from "../types";
 import SearchPricings from "./SearchPricings";
@@ -42,6 +42,14 @@ function ControlPanel({
   const handleOpenModal = () => setPricingModal(true);
   const handleCloseModal = () => setPricingModal(false);
 
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const handleChooseFile = () => {
+    if (fileRef.current !== null) {
+      fileRef.current.click();
+    }
+  };
+
   return (
     <>
       <form className="control-form" onSubmit={onSubmit}>
@@ -64,46 +72,58 @@ function ControlPanel({
           onRemove={onContextRemove}
           onClear={onContextClear}
         />
+        <h3>Add Pricing Context</h3>
 
-        <label className="file-upload">
-          Upload pricing YAML (optional)
-          <input
-            type="file"
-            accept=".yaml,.yml"
-            multiple
-            onChange={(event: ChangeEvent<HTMLInputElement>) => {
-              const files = event.target.files ?? null;
-              onFileSelect(files);
-            }}
-          />
-          <span className="help-text">
-            Uploaded YAMLs appear in the pricing context above so you can remove
-            them at any time.
-          </span>
-        </label>
-        <section className="search-ipricings">
-          <h3> Add SPHERE iPricing to context (optional)</h3>
-          <p style={{ margin: "1em auto" }} className="help-text">
-            Add iPricings with our SPHERE integration (our iPricing repository).
-          </p>
-          <button
-            type="button"
-            className="context-add-url"
-            onClick={handleOpenModal}
-          >
-            Search pricings
-          </button>
-          <p style={{ margin: "1em auto" }} className="help-text">
-            You can further customize the search if you type a pricing name in
-            the search bar.
-          </p>
-          <Modal open={showPricingModal} onClose={handleCloseModal}>
-            <SearchPricings
-              onContextAdd={onContextAdd}
-              onContextRemove={onSphereContextRemove}
+        <div className="pricing-actions">
+          <section className="ipricing-upload">
+            <input
+              ref={fileRef}
+              style={{display: "none"}}
+              type="file"
+              accept=".yaml,.yml"
+              multiple
+              onChange={(event: ChangeEvent<HTMLInputElement>) => {
+                const files = event.target.files ?? null;
+                onFileSelect(files);
+              }}
             />
-          </Modal>
-        </section>
+
+            <button type="button" className="ipricing-file-selector" onClick={handleChooseFile}>
+              Select files
+            </button>
+            <h3>Upload pricing YAML (optional)</h3>
+            <p style={{margin: "1em auto"}} className="help-text">
+              Uploaded YAMLs appear in the pricing context above so you can
+              remove them at any time.
+            </p>
+          </section>
+
+          <section className="search-ipricings">
+            <button
+              type="button"
+              className="context-add-url"
+              onClick={handleOpenModal}
+            >
+              Search pricings
+            </button>
+            <h3>Add SPHERE iPricing (optional)</h3>
+            <p style={{ margin: "1em auto" }} className="help-text">
+              Add iPricings with our SPHERE integration (our iPricing
+              repository).
+            </p>
+            <p style={{ margin: "1em auto" }} className="help-text">
+              You can further customize the search if you type a pricing name in
+              the search bar.
+            </p>
+            <Modal open={showPricingModal} onClose={handleCloseModal}>
+              <SearchPricings
+                onContextAdd={onContextAdd}
+                onContextRemove={onSphereContextRemove}
+              />
+            </Modal>
+          </section>
+        </div>
+
         <div className="control-actions">
           <button type="submit" disabled={isSubmitDisabled}>
             {isSubmitting ? "Processing..." : "Ask"}
