@@ -1137,10 +1137,6 @@ input.context-add-url:focus {
   box-shadow: 0 6px 20px rgba(102, 126, 234, 0.35);
 }
 
-.search-ipricings {
-  max-width: 200px;
-}
-
 .search-ipricings button {
   border-radius: 0.75rem;
 }
