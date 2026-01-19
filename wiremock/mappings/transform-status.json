@@ -1,0 +1,18 @@
+{
+    "request": {
+        "urlPathTemplate": "/api/v1/transform/status/{taskId}",
+        "method": "GET",
+        "pathParameters": {
+            "taskId": {
+                "equalTo": "38ed8a79-1b9e-4fb2-9ded-9b2c52f1758c" 
+            }
+        } 
+    },
+    "response": {
+        "status": 200,
+        "headers": {
+            "Content-Type": "text/yaml"
+        },
+        "bodyFileName": "ipricing-mock.yaml"
+    }
+}

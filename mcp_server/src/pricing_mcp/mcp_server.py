@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+from urllib.parse import urljoin
 
 from mcp.server.fastmcp import FastMCP  # type: ignore[import]
 
@@ -25,11 +27,14 @@ RESOURCE_ID = "resource://pricing/specification"
 VALID_SOLVERS = {"minizinc", "choco"}
 INVALID_SOLVER_ERROR = "solver must be either 'minizinc' or 'choco'."
 
-_PRICING2YAML_SPEC_PATH = Path(__file__).resolve().parent.joinpath("docs", "pricing2YamlSpecification.md")
+_PRICING2YAML_SPEC_PATH = (
+    Path(__file__).resolve().parent.joinpath("docs", "pricing2YamlSpecification.md")
+)
 try:
     _PRICING2YAML_SPEC = _PRICING2YAML_SPEC_PATH.read_text(encoding="utf-8")
 except FileNotFoundError:  # pragma: no cover - deployment safeguard
     _PRICING2YAML_SPEC = ""
+
 
 @mcp.tool()
 async def summary(
@@ -40,7 +45,9 @@ async def summary(
     """Return contextual pricing summary data."""
 
     if not (pricing_url or pricing_yaml):
-        raise ValueError("Either pricing_url or pricing_yaml must be provided for summary.")
+        raise ValueError(
+            "Either pricing_url or pricing_yaml must be provided for summary."
+        )
     logger.info(
         TOOL_INVOKED,
         tool="summary",
@@ -110,7 +117,9 @@ async def optimal(
     """Compute the optimal subscription under the provided constraints."""
 
     if not (pricing_url or pricing_yaml):
-        raise ValueError("optimal requires pricing_url or pricing_yaml to run analysis.")
+        raise ValueError(
+            "optimal requires pricing_url or pricing_yaml to run analysis."
+        )
 
     if solver not in VALID_SOLVERS:
         raise ValueError(INVALID_SOLVER_ERROR)
@@ -150,7 +159,9 @@ async def validate(
     """Validate the pricing configuration against the selected solver."""
 
     if not (pricing_url or pricing_yaml):
-        raise ValueError("validate requires pricing_url or pricing_yaml to run analysis.")
+        raise ValueError(
+            "validate requires pricing_url or pricing_yaml to run analysis."
+        )
 
     if solver not in VALID_SOLVERS:
         raise ValueError(INVALID_SOLVER_ERROR)
@@ -188,7 +199,9 @@ async def ipricing(
     """Return the canonical Pricing2Yaml (iPricing) document."""
 
     if not (pricing_url or pricing_yaml):
-        raise ValueError("iPricing requires pricing_url or pricing_yaml to produce an output.")
+        raise ValueError(
+            "iPricing requires pricing_url or pricing_yaml to produce an output."
+        )
 
     logger.info(
         TOOL_INVOKED,
@@ -203,10 +216,10 @@ async def ipricing(
         yaml_content=pricing_yaml,
         refresh=refresh,
     )
-    pricing_yaml_len = len(result.get("pricing_yaml", "")) if isinstance(result, dict) else None
+    yaml_content = result.get("pricing_yaml", "")
+    pricing_yaml_len = len(yaml_content) if isinstance(result, dict) else None
     logger.info(TOOL_COMPLETED, tool="iPricing", pricing_yaml_length=pricing_yaml_len)
     return result
-
 
 @mcp.resource("resource://pricing/specification")
 async def pricing2yaml_specification() -> str:

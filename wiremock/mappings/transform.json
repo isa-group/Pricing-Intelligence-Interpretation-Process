@@ -1,0 +1,17 @@
+{
+    "request": {
+        "url": "/api/v1/transform",
+        "method": "POST"
+    },
+    "response": {
+        "status": 200,
+        "headers": {
+            "Content-Type": "application/json"
+        },
+        "jsonBody": {
+            "task_id": "38ed8a79-1b9e-4fb2-9ded-9b2c52f1758c",
+            "status": "pending",
+            "message": "Transformation started"
+        }
+    }
+}
