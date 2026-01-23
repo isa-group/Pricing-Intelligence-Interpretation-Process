@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from functools import lru_cache
+from pathlib import Path
 from typing import Literal, Optional
 
 from pydantic import AnyHttpUrl, Field
@@ -16,6 +17,7 @@ class Settings(BaseSettings):
     app_name: str = Field(default="harvey-pricing-assistant")
     environment: Literal["local", "development", "staging", "production"] = "local"
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "INFO"
+    harvey_static_dir: Path = Field(description="Directory that will contain yaml file assets")
 
     # MCP gateway
     mcp_server_module: str = Field(
@@ -30,6 +32,14 @@ class Settings(BaseSettings):
         default=None,
         description="Additional os.pathsep-separated paths appended to PYTHONPATH for the MCP server",
     )
+    mcp_transport: Literal["stdio", "sse"] = Field(
+        default="stdio",
+        description="Transport mechanism for connecting to the MCP server",
+    )
+    mcp_server_url: Optional[str] = Field(
+        default=None,
+        description="URL for the MCP server when using SSE transport",
+    )
 
     # Async behaviour
     http_timeout_seconds: float = 60.0
@@ -40,12 +50,10 @@ class Settings(BaseSettings):
     openai_api_key: Optional[str] = Field(
         default=None,
         description="OpenAI API key",
-        env="OPENAI_API_KEY",
     )
     openai_model: str = Field(
         default="gpt-5",
         description="OpenAI model to use for H.A.R.V.E.Y. assistant",
-        env="OPENAI_MODEL",
     )
 
 

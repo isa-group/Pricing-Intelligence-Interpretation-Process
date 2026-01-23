@@ -55,8 +55,7 @@ The system exposes several powerful tools via MCP:
 
 ### Prerequisites
 - Docker & Docker Compose
-- OpenAI API Key
-- **Gemini API Key** (Required for the A-MINT service)
+- OpenAI API Key (for HARVEY and A-MINT services)
 
 ### Installation
 
@@ -71,7 +70,6 @@ The system exposes several powerful tools via MCP:
    ```bash
    export HARVEY_API_KEY="sk-..."
    export AMINT_API_KEY="sk-..."
-   # Note: A-MINT requires a Gemini API Key.
    # For detailed custom instructions, visit: https://github.com/isa-group/A-MINT-repo
    ```
 
@@ -83,13 +81,13 @@ The system exposes several powerful tools via MCP:
 ### ⚙️ Configuration
 
 #### Changing the OpenAI Model
-By default, the Harvey agent is configured to use a specific OpenAI model (e.g., `gpt-5.1`). To switch to a different model (such as `gpt-4o` or `gpt-3.5-turbo`), modify the `OPENAI_MODEL` environment variable in the `harvey-api` service within `docker-compose.yml`:
+By default, the Harvey agent is configured to use a specific OpenAI model (e.g., `gpt-5.2`). To switch to a different model (such as `gpt-4o` or `gpt-3.5-turbo`), modify the `OPENAI_MODEL` environment variable in the `harvey-api` service within `docker-compose.yml`:
 
 ```yaml
   harvey-api:
     # ...
     environment:
-      - OPENAI_MODEL=gpt-4o  # <--- Update this value
+      - OPENAI_MODEL=gpt-5.2
       # ...
 ```
 

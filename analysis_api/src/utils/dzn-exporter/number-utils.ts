@@ -82,7 +82,8 @@ export function parseCurrency(isoCode: string): string {
 
 export function calculateMinizincSubscriptionCost(pricingData: Pricing, optimal: CspSolution): number | string {
     let subscriptionCost: number = 0; 
-    if (pricingData.plans) {
+
+    if (pricingData.plans && Object.keys(pricingData.plans || {}).length > 0) {
         let planPrice = pricingData.plans[Object.keys(pricingData.plans)[optimal.selected_plan - 1]].price;
         if (typeof planPrice !== 'number') {
             return 'Subscription cost includes non-numeric plan price, cannot calculate total cost. Please check the pricing data or contact sales.';

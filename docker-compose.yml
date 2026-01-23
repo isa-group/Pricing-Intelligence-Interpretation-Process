@@ -77,8 +77,16 @@ services:
       - LOG_LEVEL=INFO
       - HTTP_HOST=0.0.0.0
       - HTTP_PORT=8085
+      - UVICORN_HOST=0.0.0.0
+      - UVICORN_PORT=8085
+      - MCP_TRANSPORT=sse
     ports:
       - "8085:8085"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import socket; s=socket.create_connection(('127.0.0.1', 8085), 2); s.close()"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
     depends_on:
       - a-mint-api
       - analysis-api
@@ -87,20 +95,24 @@ services:
   harvey-api:
     build:
       context: .
+      args:
+        - HARVEY_STATIC_DIR=/app/static
       dockerfile: harvey_api/Dockerfile
     ports:
       - "8086:8086"
     environment:
       - LOG_LEVEL=INFO
       - OPENAI_API_KEY=${HARVEY_API_KEY}
-      - OPENAI_MODEL=gpt-5.1
+      - OPENAI_MODEL=gpt-5-nano
       - AMINT_BASE_URL=http://a-mint-api:8000
       - ANALYSIS_BASE_URL=http://analysis-api:3000
       - CACHE_BACKEND=memory
-      - MCP_TRANSPORT=stdio
+      - MCP_TRANSPORT=sse
+      - MCP_SERVER_URL=http://mcp-server:8085/sse
     depends_on:
       - a-mint-api
       - analysis-api
+      - mcp-server
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8086/health"]
       interval: 30s
@@ -113,7 +125,8 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        - VITE_API_BASE_URL=http://harvey-api:8086
+        - VITE_API_BASE_URL=http://localhost:8086
+        - VITE_SPHERE_BASE_URL=https://sphere.score.us.es
     ports:
       - "80:80"
     depends_on:
