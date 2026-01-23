@@ -2,9 +2,10 @@ FROM python:3.11-slim
 COPY --from=ghcr.io/astral-sh/uv:0.9.24 /uv /uvx /bin/
 
 ENV PYTHONUNBUFFERED=1
-ARG HARVEY_STATIC_DIR
+ARG HARVEY_STATIC_DIR=/app/static
+ENV HARVEY_STATIC_DIR=${HARVEY_STATIC_DIR}
 
-RUN mkdir -p $HARVEY_STATIC_DIR
+RUN mkdir -p "${HARVEY_STATIC_DIR}"
 
 WORKDIR /app
 
