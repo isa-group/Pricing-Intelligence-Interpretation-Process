@@ -72,8 +72,9 @@ constraint
       ) \/
       exists(k in ADDONS)(
         addons_excludes[i,k] != addons_excludes[j,k]
-      )
-    ), "Invalid datafile. No two addons should be exactly the same.")
+      ) \/
+      addons_prices_cent[i] != addons_prices_cent[j]
+    ), "DuplicatedAddonError: Invalid datafile. No two addons should be exactly the same.")
   endif;
 
 % C7: There should not be "dead features" within the pricing, i.e., every feature should be included within a plan or an add-on
