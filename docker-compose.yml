@@ -133,13 +133,3 @@ services:
     depends_on:
       - harvey-api
     restart: unless-stopped
-  cron:
-    build:
-      context: ./cron
-      dockerfile: Dockerfile
-    depends_on:
-      - harvey-api
-    volumes:
-      - harvey_static:/app/static
-volumes:
-  harvey_static:

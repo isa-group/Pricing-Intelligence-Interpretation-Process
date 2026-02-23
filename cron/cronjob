@@ -1,2 +1,0 @@
-CRON_TZ=Europe/Madrid
-@daily root rm /app/static/*
