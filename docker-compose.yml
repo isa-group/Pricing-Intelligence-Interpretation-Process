@@ -119,8 +119,6 @@ services:
       timeout: 10s
       retries: 3
     restart: unless-stopped
-    volumes:
-      - harvey_static:/app/static
   mcp-frontend:
     build:
       context: ./frontend
