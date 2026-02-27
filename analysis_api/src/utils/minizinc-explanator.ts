@@ -19,6 +19,8 @@ export function explain(minizincError: any, pricing: Pricing): string {
       return explainDeadFeatureError(pricing, errorMessage);
     case 'DeadUsageLimitError':
       return explainDeadUsageLimitError(pricing, errorMessage);
+    case 'DuplicatedAddonError':
+      return explainDuplicatedAddonError(pricing, errorMessage);
     default:
       return message;
   }
@@ -85,6 +87,18 @@ function explainDeadUsageLimitError(pricing: Pricing, errorMessage: string): str
   }
 
   return `${errorMessage} Found dead usage limits: ` + deadUsageLimits.join(', ');
+}
+
+function explainDuplicatedAddonError(pricing: Pricing, errorMessage: string): string {
+  const addOns = Object.values(pricing.addOns!);
+  const duplicatedAddOns = addOns.filter((addOn, index) => {
+    return (
+      index !==
+      addOns.findIndex(a => a.features === addOn.features && a.usageLimits === addOn.usageLimits && a.usageLimitsExtensions === addOn.usageLimitsExtensions && a.price === addOn.price && a.excludes === addOn.excludes && a.dependsOn === addOn.dependsOn)
+    );
+  });
+
+  return `${errorMessage} Found duplicated add-ons: ` + duplicatedAddOns.map(a => a.name).join(', ');
 }
 
 function _isFeatureInAnyPlan(feature: string, plans: Record<string, Plan> | undefined): boolean {
