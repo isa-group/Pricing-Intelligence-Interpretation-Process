@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
+from pathlib import Path
 from typing import Annotated, Any, Dict, List, Optional
 
 from fastapi import (
@@ -39,6 +41,7 @@ class ChatUrlItem(BaseModel):
     id: str
     url: HttpUrl
 
+
 class ChatRequest(BaseModel):
     question: str
     pricing_url: Optional[ChatUrlItem] = None
@@ -51,6 +54,7 @@ class ChatResponse(BaseModel):
     answer: str
     plan: Dict[str, Any]
     result: Dict[str, Any]
+
 
 def get_file_manager():
     return FileManager(container.settings.harvey_static_dir)
@@ -76,16 +80,24 @@ async def chat(
     if request.pricing_url:
         pricing_url_str = pydantic_url_to_str(request.pricing_url.url)
         pricing_urls.append(pricing_url_str)
-        pricing_context_db[pricing_url_str] = DbUrlItem(request.pricing_url.id, pricing_url_str)
-        file_manager_service.write_file(f"{request.pricing_url.id}{file_extension}", b"")
+        pricing_context_db[pricing_url_str] = DbUrlItem(
+            request.pricing_url.id, pricing_url_str, datetime.now(timezone.utc)
+        )
+        file_manager_service.write_file(
+            f"{request.pricing_url.id}{file_extension}", b""
+        )
     if request.pricing_urls:
         pricing_urls.extend(
             str(pricing_url_item.url) for pricing_url_item in request.pricing_urls
         )
         for pricing_url_item in request.pricing_urls:
             pricing_url_str = pydantic_url_to_str(pricing_url_item.url)
-            pricing_context_db[pricing_url_str] = DbUrlItem(pricing_url_item.id, pricing_url_str)
-            file_manager_service.write_file(f"{pricing_url_item.id}{file_extension}", b"")
+            pricing_context_db[pricing_url_str] = DbUrlItem(
+                pricing_url_item.id, pricing_url_str, datetime.now(timezone.utc)
+            )
+            file_manager_service.write_file(
+                f"{pricing_url_item.id}{file_extension}", b""
+            )
 
     pricing_yamls: List[str] = []
     if request.pricing_yaml:
@@ -149,6 +161,11 @@ async def upload_and_save_pricing(
             status_code=400,
             detail=f"Invalid Content-Type: {file.content_type}. Only application/yaml is supported",
         )
+
+    filename_without_extension = get_filename_without_extension(file.filename)
+    pricing_context_db[filename_without_extension] = DbUrlItem(
+        filename_without_extension, None, datetime.now(timezone.utc)
+    )
     contents = await file.read()
     file_manager_service.write_file(file.filename, contents)
 
@@ -161,10 +178,16 @@ async def upload_and_save_pricing(
 async def delete_pricing(filename: str, file_manager_service: file_mangager_dependency):
     try:
         file_manager_service.delete_file(filename)
-    except FileNotFoundError:
+        del pricing_context_db[get_filename_without_extension(filename)]
+    except (FileNotFoundError, KeyError):
         raise HTTPException(
             status_code=404, detail=f"File with name {filename} doesn't exist"
         )
 
+
 def pydantic_url_to_str(url: HttpUrl) -> str:
     return str(url)
+
+
+def get_filename_without_extension(filename: str) -> str:
+    return Path(filename).stem
