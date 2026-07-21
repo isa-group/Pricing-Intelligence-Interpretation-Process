@@ -1,0 +1,96 @@
+name: Smart changelog generator for SPHERE
+description: Generate a changelog and upload it to SPHERE repository
+
+inputs:
+  commit_threshold:
+    description: Summarize all commit messages after surpassing this limit
+    required: true
+    default: 10
+
+  gemini_api_key:
+    description: Gemini API key to use when summarizing commits
+    required: true
+
+  gemini_model_id:
+    description: Gemini Model to use. See supported models in https://ai.google.dev/gemini-api/docs/structured-output?hl=es-419&example=recipe#model_support
+    required: true
+    default: gemini-3.5-flash
+
+runs:
+  using: composite
+  steps:
+    - name: Install git-cliff
+      uses: taiki-e/install-action@git-cliff
+
+    - name: Generate a CHANGELOG (JSON)
+      id: git-cliff-json
+      run: |
+          CONTEXT=$(mktemp)
+          GIT_CLIFF_OUTPUT="$CONTEXT" git cliff --latest --context
+          PRUNE_CONTEXT=$(mktemp)
+          jq --compact-output --from-file "$GITHUB_ACTION_PATH/00-prune-changelog.jq" "$CONTEXT" > "$PRUNE_CONTEXT"
+          echo "PRUNE_CONTEXT=$PRUNE_CONTEXT" >> "$GITHUB_ENV"
+          echo "NUMBER_OF_COMMITS=$(jq -r '.commits | length' "$PRUNE_CONTEXT")" >> "$GITHUB_ENV"
+          echo "Cleaned git-cliff context:"
+          jq '.' "$PRUNE_CONTEXT"
+      shell: bash
+      env:
+        TMPDIR: ${{ runner.temp }}
+
+    - name: Install Python
+      if: env.NUMBER_OF_COMMITS > inputs.commit_threshold
+      uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 #v6.2.0
+      with:
+        python-version: '3.12'
+
+    - name: Install dependencies
+      if: env.NUMBER_OF_COMMITS > inputs.commit_threshold
+      run: |
+          python -m pip install --upgrade pip
+          python -m pip install 'google-genai == 2.7.0'
+          python -m pip install 'pydantic == 2.13.4'
+      shell: bash
+
+    - name: Summarize commits if threshold is surpassed
+      id: summarize
+      if: env.NUMBER_OF_COMMITS > inputs.commit_threshold
+      run: |
+          SUMMARIZED_COMMITS=$(mktemp)
+          python "$GITHUB_ACTION_PATH/summarize.py" < "$PRUNE_CONTEXT" > "$SUMMARIZED_COMMITS"
+          NUMBER_OF_SUMMARIZED_COMMITS=$(jq -r 'length' "$SUMMARIZED_COMMITS")
+          echo "commits=$SUMMARIZED_COMMITS" >> "$GITHUB_OUTPUT"
+          echo "Summarized **$NUMBER_OF_COMMITS commits** into **$NUMBER_OF_SUMMARIZED_COMMITS** commits" >> "$GITHUB_STEP_SUMMARY"
+          echo "Summarized output:"
+          jq '.' "$SUMMARIZED_COMMITS"
+      shell: bash
+      env:
+        TMPDIR: ${{ runner.temp }}
+        GEMINI_API_KEY: ${{ inputs.gemini_api_key }}
+        GEMINI_MODEL_ID: ${{ inputs.gemini_model_id }}
+    - name: Create Github Release
+      run: |
+        LATEST_TAG=$(jq -r '.version' "$PRUNE_CONTEXT")
+        case $SUMMARIZE_STATUS in
+            success)
+                jq --argjson sections "$(jq -c '.' "$SUMMARIZE_COMMITS")" '.commits |= $sections' "$PRUNE_CONTEXT" | \
+                  jq --from-file "$GITHUB_ACTION_PATH/10-mapping.jq" > "changelog-$LATEST_TAG.json"
+                ;;
+            skipped)
+                jq --from-file "$GITHUB_ACTION_PATH/10-mapping.jq" "$PRUNE_CONTEXT" > "changelog-$LATEST_TAG.json"
+                ;;
+            *)
+                echo "::debug::Summarize status $SUMMARIZE_STATUS not handled"
+                ;;
+        esac
+        CHANGELOG=$(mktemp)
+        GIT_CLIFF_OUTPUT="$CHANGELOG" git cliff --latest
+        gh release create "$LATEST_TAG" --verify-tag --draft --fail-on-no-commits --notes-file "$CHANGELOG" "changelog-$LATEST_TAG.json"
+        echo "Created a release (draft) for tag \`$LATEST_TAG\`" >> "$GITHUB_STEP_SUMMARY"
+        echo "Generated changelog was:"
+        jq '.' "changelog-$LATEST_TAG.json"
+      shell: bash
+      env:
+        TMPDIR: ${{ runner.temp }}
+        GH_TOKEN: ${{ github.token }}
+        SUMMARIZE_STATUS: ${{ steps.summarize.outcome }}
+        SUMMARIZE_COMMITS: ${{ steps.summarize.outputs.commits }}

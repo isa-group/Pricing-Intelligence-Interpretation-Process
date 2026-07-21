@@ -1,0 +1,15 @@
+{
+	"type": "module",
+	"scripts": {
+		"prepare": "husky"
+	},
+	"devDependencies": {
+		"@commitlint/cli": "^21.0.1",
+		"@commitlint/config-conventional": "^21.0.1",
+		"husky": "^9.1.7"
+	},
+	"engines": {
+		"node": ">=18 <27",
+		"pnpm": ">=8 <11"
+	}
+}
