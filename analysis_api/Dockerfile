@@ -15,7 +15,7 @@ RUN apt-get update && apt-get install -y curl wget unzip
 RUN apt-get update && apt-get install -y minizinc && apt-get clean
 
 # Enable pnpm via corepack
-RUN corepack enable && corepack prepare pnpm@latest --activate
+RUN corepack enable && corepack prepare pnpm@9 --activate
 
 # Copy package files (pnpm)
 COPY package.json pnpm-lock.yaml ./
