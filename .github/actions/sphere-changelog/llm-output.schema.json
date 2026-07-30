@@ -1,0 +1,64 @@
+{
+  "$defs": {
+    "Change": {
+      "description": "Expected structured output of the LLM",
+      "properties": {
+        "id": {
+          "description": "SHA256 of a commit or UUID v4 (i.e. 3feebd0e-7710-4ee3-95d0-15cd214661fd) of a summarized change by LLM.",
+          "maxLength": 40,
+          "title": "Id",
+          "type": "string"
+        },
+        "message": {
+          "description": "Description of the change summarized by LLM.",
+          "title": "Message",
+          "type": "string"
+        },
+        "group": {
+          "$ref": "#/$defs/Group",
+          "description": "Type of the commit."
+        },
+        "scope": {
+          "$ref": "#/$defs/Scope",
+          "default": null,
+          "description": "Scope of the summarized commit."
+        }
+      },
+      "required": [
+        "id",
+        "message",
+        "group"
+      ],
+      "title": "Change",
+      "type": "object"
+    },
+    "Group": {
+      "enum": [
+        "features",
+        "fixes",
+        "docs",
+        "refactor",
+        "chore",
+        "other"
+      ],
+      "title": "Group",
+      "type": "string"
+    },
+    "Scope": {
+      "enum": [
+        "harvey",
+        "mcp",
+        "prime",
+        "csp",
+        "amint",
+        "ui"
+      ],
+      "title": "Scope",
+      "type": "string"
+    }
+  },
+  "items": {
+    "$ref": "#/$defs/Change"
+  },
+  "type": "array"
+}

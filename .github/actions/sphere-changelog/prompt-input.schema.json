@@ -1,0 +1,103 @@
+{
+  "$defs": {
+    "Commit": {
+      "properties": {
+        "id": {
+          "description": "SHA256 of a commit.",
+          "title": "Id",
+          "type": "string"
+        },
+        "message": {
+          "description": "Description of the commit message according to the Conventional Commits spec.",
+          "title": "Message",
+          "type": "string"
+        },
+        "group": {
+          "$ref": "#/$defs/Group",
+          "description": "Type of the commit."
+        },
+        "scope": {
+          "$ref": "#/$defs/Scope",
+          "default": null,
+          "description": "Scope of the commit according to the Conventional Commits spec."
+        },
+        "raw_message": {
+          "description": "The raw message of the commit that follows Conventional Commits spec (i.e. <type>[optional scope]: <description>).",
+          "title": "Raw Message",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "message",
+        "group",
+        "raw_message"
+      ],
+      "title": "Commit",
+      "type": "object"
+    },
+    "Group": {
+      "enum": [
+        "features",
+        "fixes",
+        "docs",
+        "refactor",
+        "chore",
+        "other"
+      ],
+      "title": "Group",
+      "type": "string"
+    },
+    "Scope": {
+      "enum": [
+        "harvey",
+        "mcp",
+        "prime",
+        "csp",
+        "amint",
+        "ui"
+      ],
+      "title": "Scope",
+      "type": "string"
+    }
+  },
+  "properties": {
+    "version": {
+      "description": "Release version of the software using SemVer.",
+      "title": "Version",
+      "type": "string"
+    },
+    "timestamp": {
+      "description": "Unix epoch of the release.",
+      "title": "Timestamp",
+      "type": "integer"
+    },
+    "message": {
+      "description": "Summary of the git tag of the release.",
+      "title": "Message",
+      "type": "string"
+    },
+    "commit_id": {
+      "description": "SHA256 of the tagged commit.",
+      "title": "Commit Id",
+      "type": "string"
+    },
+    "commits": {
+      "description": "List of commits that belongs to the release.",
+      "items": {
+        "$ref": "#/$defs/Commit"
+      },
+      "title": "Commits",
+      "type": "array"
+    }
+  },
+  "required": [
+    "version",
+    "timestamp",
+    "message",
+    "commit_id",
+    "commits"
+  ],
+  "title": "Release",
+  "type": "object"
+}
