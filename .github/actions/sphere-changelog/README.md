@@ -1,3 +1,5 @@
+# GitHub Action: sphere-changelog
+
 This custom GitHub action generates a changelog containing a list of changes
 since the latest tag uploaded to the repository. If the number of commits exceeds
 the commit threshold, they will be summarized using an LLM (Gemini). Finally,
@@ -18,7 +20,7 @@ a draft release is created and the changelog data is attached to the release as 
 Before using this action, you must:
 - Use the [Conventional Commits specification](https://www.conventionalcommits.org/en/v1.0.0/)
 to write your commit messages. If you already have a Conventional Commit style guide use that instead.
-- Configure `permissions` with `contents: read` in your workflow.
+- Configure `permissions` with `contents: write` in your workflow.
 - Use `actions/checkout` as the first step in your workflow with `fetch-depth: 0` to fetch all tags.
 
 ### Requirements
@@ -35,6 +37,14 @@ To use this action, you need to:
 > This action works best with `on.push.tags` event which is triggered only when a tagged commit is pushed.
 > See [the documentation](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#push).
 
+### Checklist
+
+- [ ] I am using Conventional Commits to write commit messages.
+- [ ] I am using `actions/checkout` as first step and I haved configured it with `fetch-depth: 0`.
+- [ ] I have configured `contents: write` in my workflow.
+- [ ] I have stored a Gemini API Key in my repository secrets.
+- [ ] I have configured the action inputs properly reading the docs.
+
 ### Examples
 
 Minimal example:
@@ -46,7 +56,7 @@ on:
       - '*'
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   changelog:
@@ -54,7 +64,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 #v7.0.0
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - name: Generate changelog
@@ -87,7 +97,8 @@ Configure commit threshold:
 
 ### `gemini_model_id`
 
-**Optional**: The Gemini model to use (defaults to Gemini 3.5 Flash). [See supported models](https://ai.google.dev/gemini-api/docs/structured-output).
+**Optional**: The Gemini model to use (defaults to Gemini 3.5 Flash). It has to be compatible with
+[Structured outputs](https://ai.google.dev/gemini-api/docs/structured-output).
 
 ### `commit_threshold`
 
